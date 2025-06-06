@@ -55,10 +55,16 @@ public:
 
 private:
 	/**
+	 * The widget class to use for the root of the UI. Must be set in a Blueprint subclass of this Subsystem.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration", meta = (AllowPrivateAccess = "true"))
+	TSoftClassPtr<US_UI_RootWidget> RootWidgetClass;
+
+	/**
 	 * Data asset containing the mapping of screen IDs to widget classes.
 	 * This is used to asynchronously load UI assets as needed.
 	 */
-	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration")
+	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration", meta = (AllowPrivateAccess = "true"))
 	TSoftObjectPtr<UPrimaryDataAsset> ScreenMapDataAsset;
 
 	/**

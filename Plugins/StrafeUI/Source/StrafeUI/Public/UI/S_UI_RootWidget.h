@@ -18,6 +18,10 @@ class STRAFEUI_API US_UI_RootWidget : public UCommonActivatableWidget
 {
     GENERATED_BODY()
 
+public:
+    /** Returns the main widget stack where screens are pushed. */
+    UCommonActivatableWidgetStack* GetMainStack() const { return Slot_MainStack; }
+
 private:
     /** The main stack where all primary screens (e.g., Main Menu, Settings) are pushed. */
     UPROPERTY(meta = (BindWidget))
