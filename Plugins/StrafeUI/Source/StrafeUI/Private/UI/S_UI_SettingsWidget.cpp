@@ -3,7 +3,7 @@
 #include "UI/S_UI_SettingsWidget.h"
 #include "Components/Slider.h"
 #include "Components/CheckBox.h"
-#include "Components/CommonButtonBase.h"
+#include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
 
 void US_UI_SettingsWidget::SetViewModel(US_UI_VM_Settings* InViewModel)

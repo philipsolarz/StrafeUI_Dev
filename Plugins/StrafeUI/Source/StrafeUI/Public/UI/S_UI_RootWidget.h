@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CommonActivatableWidget.h"
-#include "Components/CommonActivatableWidgetStack.h"
+#include "Widgets/CommonActivatableWidgetContainer.h"
 #include "Components/Border.h"
 #include "S_UI_RootWidget.generated.h"
 

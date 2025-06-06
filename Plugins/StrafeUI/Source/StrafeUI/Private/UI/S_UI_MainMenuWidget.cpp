@@ -1,7 +1,7 @@
 // Plugins/StrafeUI/Source/StrafeUI/Private/UI/S_UI_MainMenuWidget.cpp
 
 #include "UI/S_UI_MainMenuWidget.h"
-#include "Components/CommonButtonBase.h"
+#include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
 #include "Data/S_UI_ScreenTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -63,7 +63,8 @@ void US_UI_MainMenuWidget::HandleQuitClicked()
         Payload.ModalType = E_UIModalType::YesNo;
 
         // The lambda function will be executed when the modal is dismissed.
-        UISubsystem->RequestModal(Payload, FOnUIModalDismissed::FDelegate::CreateLambda([this](bool bConfirmed)
+        // Use the new FOnModalDismissedSignature and its CreateLambda method.
+        UISubsystem->RequestModal(Payload, FOnModalDismissedSignature::CreateLambda([this](bool bConfirmed)
             {
                 if (bConfirmed)
                 {

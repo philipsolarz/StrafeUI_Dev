@@ -10,10 +10,17 @@
 class UCommonActivatableWidget;
 
 /**
- * Delegate broadcast when a modal dialog is dismissed.
+ * Delegate broadcast when a modal dialog is dismissed. (Multicast, for binding in Blueprints/Editors)
  * @param bConfirmed - True if the user confirmed the action (e.g., clicked "Yes" or "Confirm"), false otherwise.
  */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUIModalDismissed, bool, bConfirmed);
+
+/**
+ * Delegate signature for a single-cast C++ callback when a modal is dismissed.
+ * This is used for passing lambdas and other C++-only callbacks.
+ */
+DECLARE_DELEGATE_OneParam(FOnModalDismissedSignature, bool);
+
 
 /**
  * @enum E_UIScreenId

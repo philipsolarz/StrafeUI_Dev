@@ -6,12 +6,12 @@
 #include "Engine/StreamableManager.h"
 #include "Engine/AssetManager.h"
 
-// Placeholder includes for forward-declared classes.
-// You will need to create and include the actual headers for these.
-// #include "S_UI_InputController.h"
-// #include "S_UI_ModalStack.h"
-// #include "S_UI_RootWidget.h"
-// #include "Data/S_UI_ScreenDataAsset.h"
+// Correctly include the necessary headers
+#include "S_UI_InputController.h"
+#include "S_UI_ModalStack.h"
+#include "UI/S_UI_RootWidget.h"
+#include "Data/S_UI_ScreenTypes.h"
+
 
 void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -55,9 +55,15 @@ void US_UI_Subsystem::PopScreen()
 	UE_LOG(LogTemp, Verbose, TEXT("Popping current screen."));
 }
 
-void US_UI_Subsystem::RequestModal(const F_UIModalPayload& Payload, const FOnUIModalDismissed& OnDismissedCallback)
+// UPDATE: The function signature now correctly uses FOnModalDismissedSignature
+void US_UI_Subsystem::RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback)
 {
 	// Implementation will delegate the request to the US_UI_ModalStack.
 	// The ModalStack will then be responsible for creating and displaying the modal.
+	if (ModalStack)
+	{
+		ModalStack->QueueModal(Payload, OnDismissedCallback);
+	}
+
 	UE_LOG(LogTemp, Verbose, TEXT("Modal requested with message: %s"), *Payload.Message.ToString());
 }

@@ -2,7 +2,7 @@
 
 #include "UI/S_UI_FindGameWidget.h"
 #include "Components/ListView.h"
-#include "Components/CommonButtonBase.h"
+#include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
 
 void US_UI_FindGameWidget::SetViewModel(US_UI_VM_ServerBrowser* InViewModel)

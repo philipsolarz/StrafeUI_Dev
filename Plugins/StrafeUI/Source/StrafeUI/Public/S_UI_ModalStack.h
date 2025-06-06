@@ -9,52 +9,45 @@
 
 // Forward declarations
 class US_UI_Subsystem;
-class US_UI_ModalWidget; // Assuming a base modal widget class
+class US_UI_ModalWidget;
+
+/**
+ * @struct F_UIModalRequest
+ * @brief A struct holding all information for a queued modal dialog request.
+ */
+USTRUCT()
+struct F_UIModalRequest
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    F_UIModalPayload Payload;
+
+    FOnModalDismissedSignature OnDismissedCallback;
+};
+
 
 /**
  * @class US_UI_ModalStack
  * @brief Manages a queue of modal dialogs, ensuring they are displayed one by one.
- *
- * This system queues requests for modals and presents them sequentially. It handles
- * the creation, display, and dismissal of modal dialog widgets.
  */
 UCLASS()
 class STRAFEUI_API US_UI_ModalStack : public UObject
 {
     GENERATED_BODY()
 
-private:
-    /**
-     * @struct F_UIModalRequest
-     * @brief A struct holding all information for a queued modal dialog request.
-     */
-    struct F_UIModalRequest
-    {
-        F_UIModalPayload Payload;
-        FOnUIModalDismissed OnDismissedCallback;
-    };
-
 public:
-    /**
-     * Initializes the modal stack.
-     * @param InSubsystem The owner UI subsystem.
-     */
+    /** Initializes the modal stack. */
     void Initialize(US_UI_Subsystem* InSubsystem);
 
-    /**
-     * Queues a new modal dialog request.
-     * @param Payload The data for the modal (message, buttons, etc.).
-     * @param OnDismissedCallback The callback to execute when the modal is closed.
-     */
-    void QueueModal(const F_UIModalPayload& Payload, const FOnUIModalDismissed& OnDismissedCallback);
+    /** Queues a new modal dialog request. */
+    void QueueModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
 
 private:
     /** Attempts to display the next modal from the queue if one is not already active. */
     void TryDisplayNextModal();
 
-    /** * Handles the dismissal of the active modal.
-     * @param bConfirmed True if the user confirmed the modal, false otherwise.
-     */
+    /** Handles the dismissal of the active modal. */
     UFUNCTION()
     void OnModalDismissed(bool bConfirmed);
 
@@ -67,7 +60,7 @@ private:
     TObjectPtr<US_UI_ModalWidget> ActiveModal;
 
     /** The last callback associated with the active modal. */
-    FOnUIModalDismissed ActiveModalDismissedCallback;
+    FOnModalDismissedSignature ActiveModalDismissedCallback;
 
     /** Cached pointer to the UI Subsystem. */
     UPROPERTY()

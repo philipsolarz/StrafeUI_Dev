@@ -51,8 +51,7 @@ public:
 	 * @param Payload The data defining the modal's content and button layout.
 	 * @param OnDismissedCallback The delegate to execute when the modal is dismissed.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "UI Subsystem")
-	void RequestModal(const F_UIModalPayload& Payload, const FOnUIModalDismissed& OnDismissedCallback);
+	void RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
 
 private:
 	/**
