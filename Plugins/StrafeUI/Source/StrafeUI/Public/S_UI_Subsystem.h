@@ -53,6 +53,10 @@ public:
 	 */
 	void RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
 
+	/** Returns the root UI widget. */
+	UFUNCTION(BlueprintPure, Category = "UI Subsystem")
+	US_UI_RootWidget* GetRootWidget() const { return UIRootWidget; }
+
 private:
 	/**
 	 * The widget class to use for the root of the UI. Must be set in a Blueprint subclass of this Subsystem.

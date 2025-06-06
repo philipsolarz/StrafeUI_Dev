@@ -7,6 +7,7 @@
 #include "S_UI_BaseScreenWidget.generated.h"
 
 class US_UI_Subsystem;
+struct FInputActionValue;
 
 /**
  * @class S_UI_BaseScreenWidget
@@ -17,6 +18,18 @@ UCLASS(Abstract)
 class STRAFEUI_API US_UI_BaseScreenWidget : public UCommonActivatableWidget
 {
     GENERATED_BODY()
+
+public:
+    /**
+     * @brief Handles the navigate input action. Override in child classes to implement navigation logic.
+     * @param NavDirection The 2D navigation vector.
+     */
+    virtual void HandleNavigation(const FVector2D& NavDirection) {}
+
+    /**
+     * @brief Handles the accept/confirm input action. Override in child classes.
+     */
+    virtual void HandleAccept() {}
 
 protected:
     /**

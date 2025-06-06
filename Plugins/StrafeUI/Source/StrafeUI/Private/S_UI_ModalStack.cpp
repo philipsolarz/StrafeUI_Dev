@@ -26,15 +26,21 @@ void US_UI_ModalStack::TryDisplayNextModal()
         return;
     }
 
+    if (!ModalWidgetClass.IsValid() && !ModalWidgetClass.IsPending())
+    {
+        ModalWidgetClass.LoadSynchronous();
+    }
+
     if (!ModalWidgetClass.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("ModalStack: ModalWidgetClass is not set!"));
+        UE_LOG(LogTemp, Error, TEXT("ModalStack: ModalWidgetClass is not set or failed to load!"));
         if (ModalRequestQueue.Num() > 0)
         {
             ModalRequestQueue.RemoveAt(0);
         }
         return;
     }
+
 
     const F_UIModalRequest& NextRequest = ModalRequestQueue[0];
 
@@ -44,7 +50,7 @@ void US_UI_ModalStack::TryDisplayNextModal()
         return;
     }
 
-    US_UI_ModalWidget* NewModal = CreateWidget<US_UI_ModalWidget>(PC, ModalWidgetClass.LoadSynchronous());
+    US_UI_ModalWidget* NewModal = CreateWidget<US_UI_ModalWidget>(PC, ModalWidgetClass.Get());
     if (NewModal)
     {
         ActiveModal = NewModal;
@@ -52,7 +58,7 @@ void US_UI_ModalStack::TryDisplayNextModal()
 
         NewModal->SetupModal(NextRequest.Payload);
         NewModal->OnDismissed.AddDynamic(this, &US_UI_ModalStack::OnModalDismissed);
-        NewModal->AddToViewport(100);
+        NewModal->AddToViewport(100); // High Z-order to ensure it's on top
     }
 
     ModalRequestQueue.RemoveAt(0);
@@ -67,7 +73,7 @@ void US_UI_ModalStack::OnModalDismissed(bool bConfirmed)
 
     if (ActiveModal)
     {
-        ActiveModal->RemoveFromParent();
+        // The widget handles its own RemoveFromParent()
         ActiveModal = nullptr;
     }
 

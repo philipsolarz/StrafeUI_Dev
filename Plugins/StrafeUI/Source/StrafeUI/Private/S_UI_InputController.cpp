@@ -2,8 +2,12 @@
 
 #include "S_UI_InputController.h"
 #include "EnhancedInputComponent.h"
-#include "S_UI_Subsystem.h" // For future use, e.g., UISubsystem->GetActiveWidget()->OnNavigate();
+#include "S_UI_Subsystem.h"
 #include "InputActionValue.h"
+#include "UI/S_UI_RootWidget.h"
+#include "UI/S_UI_BaseScreenWidget.h"
+#include "Widgets/CommonActivatableWidgetContainer.h"
+// #include "Data/DA_UIInputActions.h" // Assumed Data Asset header
 
 void US_UI_InputController::Initialize(US_UI_Subsystem* InSubsystem, UEnhancedInputComponent* InputComponent)
 {
@@ -12,7 +16,18 @@ void US_UI_InputController::Initialize(US_UI_Subsystem* InSubsystem, UEnhancedIn
 
     UISubsystem = InSubsystem;
 
-    // A common pattern is to load these actions from a Data Asset, but for simplicity, we assume they are set on a Blueprint subclass.
+    // In a real project, the Subsystem would hold a TSoftObjectPtr to this Data Asset, load it,
+    // and pass it into this Initialize function. For this example, we still rely on the properties
+    // being set on the Blueprint subclass of this controller.
+    //
+    // Example of loading from a Data Asset:
+    // if (const UDA_UIInputActions* InputActionsAsset = LoadInputActionsAsset())
+    // {
+    //     NavigateAction = InputActionsAsset->NavigateAction;
+    //     AcceptAction = InputActionsAsset->AcceptAction;
+    //     BackAction = InputActionsAsset->BackAction;
+    // }
+
     if (NavigateAction)
     {
         InputComponent->BindAction(NavigateAction, ETriggerEvent::Triggered, this, &US_UI_InputController::OnNavigate);
@@ -29,17 +44,29 @@ void US_UI_InputController::Initialize(US_UI_Subsystem* InSubsystem, UEnhancedIn
 
 void US_UI_InputController::OnNavigate(const FInputActionValue& Value)
 {
-    // In a real implementation, you would forward this to the active widget or UI system.
     const FVector2D NavDirection = Value.Get<FVector2D>();
     UE_LOG(LogTemp, Verbose, TEXT("InputController: Navigate triggered with value: %s"), *NavDirection.ToString());
+
+    if (UISubsystem && UISubsystem->GetRootWidget())
+    {
+        if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetMainStack()->GetActiveWidget()))
+        {
+            ActiveWidget->HandleNavigation(NavDirection);
+        }
+    }
 }
 
 void US_UI_InputController::OnAccept(const FInputActionValue& Value)
 {
-    // In a real implementation, you would forward this to the active widget or UI system.
     UE_LOG(LogTemp, Verbose, TEXT("InputController: Accept triggered."));
 
-    // Example: UISubsystem->GetTopmostScreen()->HandleConfirm();
+    if (UISubsystem && UISubsystem->GetRootWidget())
+    {
+        if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetMainStack()->GetActiveWidget()))
+        {
+            ActiveWidget->HandleAccept();
+        }
+    }
 }
 
 void US_UI_InputController::OnBack(const FInputActionValue& Value)
@@ -47,5 +74,8 @@ void US_UI_InputController::OnBack(const FInputActionValue& Value)
     UE_LOG(LogTemp, Verbose, TEXT("InputController: Back triggered."));
 
     // The most common use for a global "Back" is to pop the current screen.
-    UISubsystem->PopScreen();
+    if (UISubsystem)
+    {
+        UISubsystem->PopScreen();
+    }
 }

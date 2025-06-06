@@ -16,6 +16,10 @@ class STRAFEUI_API US_UI_TextButton : public UCommonButtonBase
     GENERATED_BODY()
 
 public:
+    /** Sets the button's text and updates the visual representation. */
+    UFUNCTION(BlueprintCallable, Category = "Button Text")
+    void SetButtonText(const FText& InText);
+
     // This is the C++ equivalent of an "Instance Editable" variable.
     // It will show up in the Details panel of any WBP_TextButton instance.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Button Text")

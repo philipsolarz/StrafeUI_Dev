@@ -2,6 +2,15 @@
 
 #include "UI/S_UI_TextButton.h"
 
+void US_UI_TextButton::SetButtonText(const FText& InText)
+{
+    ButtonText = InText;
+    if (Text_Label)
+    {
+        Text_Label->SetText(ButtonText);
+    }
+}
+
 void US_UI_TextButton::NativePreConstruct()
 {
     Super::NativePreConstruct();
