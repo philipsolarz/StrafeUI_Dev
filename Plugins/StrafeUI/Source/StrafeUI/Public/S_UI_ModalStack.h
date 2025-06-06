@@ -31,7 +31,7 @@ struct F_UIModalRequest
  * @class US_UI_ModalStack
  * @brief Manages a queue of modal dialogs, ensuring they are displayed one by one.
  */
-UCLASS()
+UCLASS(Blueprintable)
 class STRAFEUI_API US_UI_ModalStack : public UObject
 {
     GENERATED_BODY()

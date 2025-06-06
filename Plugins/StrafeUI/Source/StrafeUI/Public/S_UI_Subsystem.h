@@ -8,7 +8,7 @@
 #include "S_UI_Subsystem.generated.h"
 
 // Forward declarations to reduce header dependencies
-class UPrimaryDataAsset;
+class US_UI_ScreenDataAsset;
 class UCommonActivatableWidget;
 class US_UI_InputController;
 class US_UI_ModalStack;
@@ -22,7 +22,7 @@ class US_UI_RootWidget;
  * and input routing. It is responsible for loading UI assets, instantiating widgets,
  * and maintaining the overall UI state.
  */
-UCLASS()
+UCLASS(Blueprintable)
 class STRAFEUI_API US_UI_Subsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
@@ -69,7 +69,7 @@ private:
 	 * This is used to asynchronously load UI assets as needed.
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration", meta = (AllowPrivateAccess = "true"))
-	TSoftObjectPtr<UPrimaryDataAsset> ScreenMapDataAsset;
+	TSoftObjectPtr<US_UI_ScreenDataAsset> ScreenMapDataAsset;
 
 	/**
 	 * A cache of screen widget classes, populated from the ScreenMapDataAsset.
@@ -78,11 +78,17 @@ private:
 	UPROPERTY()
 	TMap<E_UIScreenId, TSubclassOf<UCommonActivatableWidget>> ScreenWidgetClassCache;
 
+	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration")
+	TSubclassOf<US_UI_InputController> InputControllerClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration")
+	TSubclassOf<US_UI_ModalStack> ModalStackClass;
+
 	/** Pointer to the UI input controller, responsible for managing UI-specific input actions. */
 	UPROPERTY()
 	TObjectPtr<US_UI_InputController> InputController;
 
-	/** Pointer to the modal stack, which manages the lifecycle of modal dialogs. */
+	///** Pointer to the modal stack, which manages the lifecycle of modal dialogs. */
 	UPROPERTY()
 	TObjectPtr<US_UI_ModalStack> ModalStack;
 

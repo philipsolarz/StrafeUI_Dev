@@ -42,8 +42,8 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 	}
 
 	// Instantiate and initialize the Input Controller and Modal Stack
-	InputController = NewObject<US_UI_InputController>(this);
-	ModalStack = NewObject<US_UI_ModalStack>(this);
+	InputController = NewObject<US_UI_InputController>(this, InputControllerClass);
+	ModalStack = NewObject<US_UI_ModalStack>(this, ModalStackClass);
 	ModalStack->Initialize(this);
 
 	if (const APlayerController* PC = GetGameInstance()->GetFirstLocalPlayerController())

@@ -19,7 +19,7 @@ struct FInputActionValue;
  * This object is owned by the S_UI_Subsystem and is responsible for all
  * UI-related input processing, such as navigation, accept, and back actions.
  */
-UCLASS()
+UCLASS(Blueprintable)
 class STRAFEUI_API US_UI_InputController : public UObject
 {
     GENERATED_BODY()
