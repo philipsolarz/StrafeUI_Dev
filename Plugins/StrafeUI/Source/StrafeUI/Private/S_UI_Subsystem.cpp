@@ -1,6 +1,7 @@
 // Plugins/StrafeUI/Source/StrafeUI/Private/S_UI_Subsystem.cpp
 
 #include "S_UI_Subsystem.h"
+#include "S_UI_Settings.h" // Include the new settings header
 
 // Required engine headers
 #include "Engine/AssetManager.h"
@@ -12,6 +13,7 @@
 #include "Data/S_UI_ScreenDataAsset.h"
 #include "S_UI_InputController.h"
 #include "S_UI_ModalStack.h"
+#include "S_UI_PlayerController.h"
 #include "UI/S_UI_RootWidget.h"
 #include "UI/S_UI_FindGameWidget.h"
 #include "UI/S_UI_SettingsWidget.h"
@@ -25,8 +27,15 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initializing..."));
 
-	// Load the Screen Map Data Asset and populate the cache
-	if (const US_UI_ScreenDataAsset* ScreenData = Cast<US_UI_ScreenDataAsset>(ScreenMapDataAsset.LoadSynchronous()))
+	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
+	if (!Settings)
+	{
+		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: Cannot find StrafeUISettings!"));
+		return;
+	}
+
+	// Pre-load the screen definitions
+	if (const US_UI_ScreenDataAsset* ScreenData = Settings->ScreenMapDataAsset.LoadSynchronous())
 	{
 		for (const F_UIScreenDefinition& Definition : ScreenData->ScreenDefinitions)
 		{
@@ -36,44 +45,58 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 			}
 		}
 	}
-	else
+
+	// Initialize the modal stack, as it doesn't depend on a player controller
+	if (TSubclassOf<US_UI_ModalStack> LoadedModalStackClass = Settings->ModalStackClass.LoadSynchronous())
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to load or cast ScreenMapDataAsset! Ensure it is set in the Subsystem's Blueprint and parented to S_UI_ScreenDataAsset."));
+		ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
+		ModalStack->Initialize(this, Settings->ModalWidgetClass);
 	}
 
-	// Instantiate and initialize the Input Controller and Modal Stack
-	InputController = NewObject<US_UI_InputController>(this, InputControllerClass);
-	ModalStack = NewObject<US_UI_ModalStack>(this, ModalStackClass);
-	ModalStack->Initialize(this);
-
-	if (const APlayerController* PC = GetGameInstance()->GetFirstLocalPlayerController())
-	{
-		if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PC->InputComponent))
-		{
-			InputController->Initialize(this, EIC);
-		}
-	}
-
-	// Create and add the Root UI Widget to the viewport
-	if (const TSubclassOf<US_UI_RootWidget> RootClass = RootWidgetClass.LoadSynchronous())
-	{
-		if (APlayerController* PC = GetGameInstance()->GetFirstLocalPlayerController())
-		{
-			UIRootWidget = CreateWidget<US_UI_RootWidget>(PC, RootClass);
-			if (UIRootWidget)
-			{
-				UIRootWidget->AddToViewport();
-				// Display the initial UI screen
-				PushScreen(E_UIScreenId::MainMenu);
-			}
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: RootWidgetClass is not set or failed to load!"));
-	}
+	// NOTE: We no longer create the UI Root or Input Controller here.
 
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initialized"));
+}
+
+void US_UI_Subsystem::InitializeUIForPlayer(AS_UI_PlayerController* PlayerController)
+{
+	if (!PlayerController || UIRootWidget)
+	{
+		// Prevent initialization if the player is invalid or if UI has already been created.
+		return;
+	}
+
+	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
+	if (!Settings)
+	{
+		return;
+	}
+
+	// 1. Initialize the Input Controller now that we have a valid Player Controller
+	if (TSubclassOf<US_UI_InputController> LoadedInputControllerClass = Settings->InputControllerClass.LoadSynchronous())
+	{
+		InputController = NewObject<US_UI_InputController>(this, LoadedInputControllerClass);
+		if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
+		{
+			InputController->Initialize(this, EIC, Settings);
+		}
+	}
+
+	// 2. Create and add the Root UI Widget to the viewport
+	if (const TSubclassOf<US_UI_RootWidget> RootClass = Settings->RootWidgetClass.LoadSynchronous())
+	{
+		UIRootWidget = CreateWidget<US_UI_RootWidget>(PlayerController, RootClass);
+		if (UIRootWidget)
+		{
+			UIRootWidget->AddToViewport();
+			// 3. Push the initial screen
+			PushScreen(E_UIScreenId::MainMenu);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: RootWidgetClass is not set in Project Settings -> Strafe UI!"));
+	}
 }
 
 void US_UI_Subsystem::Deinitialize()
@@ -86,6 +109,7 @@ void US_UI_Subsystem::Deinitialize()
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Deinitialized"));
 	Super::Deinitialize();
 }
+
 
 void US_UI_Subsystem::PushScreen(const E_UIScreenId ScreenId)
 {

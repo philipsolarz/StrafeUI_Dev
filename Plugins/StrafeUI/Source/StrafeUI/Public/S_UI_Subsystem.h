@@ -8,11 +8,11 @@
 #include "S_UI_Subsystem.generated.h"
 
 // Forward declarations to reduce header dependencies
-class US_UI_ScreenDataAsset;
 class UCommonActivatableWidget;
 class US_UI_InputController;
 class US_UI_ModalStack;
 class US_UI_RootWidget;
+class AS_UI_PlayerController;
 
 /**
  * @class US_UI_Subsystem
@@ -22,7 +22,7 @@ class US_UI_RootWidget;
  * and input routing. It is responsible for loading UI assets, instantiating widgets,
  * and maintaining the overall UI state.
  */
-UCLASS(Blueprintable)
+UCLASS() // No longer Blueprintable
 class STRAFEUI_API US_UI_Subsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
@@ -32,6 +32,9 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 	//~ End USubsystem Interface
+
+	/** Initializes the root widget and input bindings for a specific player. */
+	void InitializeUIForPlayer(AS_UI_PlayerController* PlayerController);
 
 	/**
 	 * Pushes a new screen onto the UI stack, making it the active screen.
@@ -59,36 +62,17 @@ public:
 
 private:
 	/**
-	 * The widget class to use for the root of the UI. Must be set in a Blueprint subclass of this Subsystem.
-	 */
-	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration", meta = (AllowPrivateAccess = "true"))
-	TSoftClassPtr<US_UI_RootWidget> RootWidgetClass;
-
-	/**
-	 * Data asset containing the mapping of screen IDs to widget classes.
-	 * This is used to asynchronously load UI assets as needed.
-	 */
-	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration", meta = (AllowPrivateAccess = "true"))
-	TSoftObjectPtr<US_UI_ScreenDataAsset> ScreenMapDataAsset;
-
-	/**
 	 * A cache of screen widget classes, populated from the ScreenMapDataAsset.
 	 * This avoids repeatedly resolving the soft pointer once a class is loaded.
 	 */
 	UPROPERTY()
 	TMap<E_UIScreenId, TSubclassOf<UCommonActivatableWidget>> ScreenWidgetClassCache;
 
-	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration")
-	TSubclassOf<US_UI_InputController> InputControllerClass;
-
-	UPROPERTY(EditDefaultsOnly, Category = "UI Subsystem|Configuration")
-	TSubclassOf<US_UI_ModalStack> ModalStackClass;
-
 	/** Pointer to the UI input controller, responsible for managing UI-specific input actions. */
 	UPROPERTY()
 	TObjectPtr<US_UI_InputController> InputController;
 
-	///** Pointer to the modal stack, which manages the lifecycle of modal dialogs. */
+	/** Pointer to the modal stack, which manages the lifecycle of modal dialogs. */
 	UPROPERTY()
 	TObjectPtr<US_UI_ModalStack> ModalStack;
 

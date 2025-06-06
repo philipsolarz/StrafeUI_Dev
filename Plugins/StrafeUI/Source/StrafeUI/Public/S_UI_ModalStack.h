@@ -18,12 +18,12 @@ class US_UI_ModalWidget;
 USTRUCT()
 struct F_UIModalRequest
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
-    UPROPERTY()
-    F_UIModalPayload Payload;
+	UPROPERTY()
+	F_UIModalPayload Payload;
 
-    FOnModalDismissedSignature OnDismissedCallback;
+	FOnModalDismissedSignature OnDismissedCallback;
 };
 
 
@@ -31,42 +31,41 @@ struct F_UIModalRequest
  * @class US_UI_ModalStack
  * @brief Manages a queue of modal dialogs, ensuring they are displayed one by one.
  */
-UCLASS(Blueprintable)
+UCLASS()
 class STRAFEUI_API US_UI_ModalStack : public UObject
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    /** Initializes the modal stack. */
-    void Initialize(US_UI_Subsystem* InSubsystem);
+	/** Initializes the modal stack. */
+	void Initialize(US_UI_Subsystem* InSubsystem, TSoftClassPtr<US_UI_ModalWidget> InModalWidgetClass);
 
-    /** Queues a new modal dialog request. */
-    void QueueModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
+	/** Queues a new modal dialog request. */
+	void QueueModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
 
 private:
-    /** Attempts to display the next modal from the queue if one is not already active. */
-    void TryDisplayNextModal();
+	/** Attempts to display the next modal from the queue if one is not already active. */
+	void TryDisplayNextModal();
 
-    /** Handles the dismissal of the active modal. */
-    UFUNCTION()
-    void OnModalDismissed(bool bConfirmed);
+	/** Handles the dismissal of the active modal. */
+	UFUNCTION()
+	void OnModalDismissed(bool bConfirmed);
 
-    /** The queue of modal dialogs waiting to be displayed. */
-    UPROPERTY()
-    TArray<F_UIModalRequest> ModalRequestQueue;
+	/** The queue of modal dialogs waiting to be displayed. */
+	UPROPERTY()
+	TArray<F_UIModalRequest> ModalRequestQueue;
 
-    /** Pointer to the currently displayed modal widget, if any. */
-    UPROPERTY()
-    TObjectPtr<US_UI_ModalWidget> ActiveModal;
+	/** Pointer to the currently displayed modal widget, if any. */
+	UPROPERTY()
+	TObjectPtr<US_UI_ModalWidget> ActiveModal;
 
-    /** The last callback associated with the active modal. */
-    FOnModalDismissedSignature ActiveModalDismissedCallback;
+	/** The last callback associated with the active modal. */
+	FOnModalDismissedSignature ActiveModalDismissedCallback;
 
-    /** Cached pointer to the UI Subsystem. */
-    UPROPERTY()
-    TObjectPtr<US_UI_Subsystem> UISubsystem;
+	/** Cached pointer to the UI Subsystem. */
+	UPROPERTY()
+	TObjectPtr<US_UI_Subsystem> UISubsystem;
 
-    /** The widget class to use for creating modals. Must be set in a Blueprint subclass. */
-    UPROPERTY(EditDefaultsOnly, Category = "Modal Stack")
-    TSoftClassPtr<US_UI_ModalWidget> ModalWidgetClass;
+	/** The widget class to use for creating modals, passed in during initialization. */
+	TSoftClassPtr<US_UI_ModalWidget> ModalWidgetClass;
 };
