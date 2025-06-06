@@ -91,6 +91,11 @@ Content/Player/Mannequin_UE4
 Content/FirstPersonArms
 Content/FirstPerson
 Content/Assets
-Content/*
 Source/*
 Config/*
+Content/Characters
+Content/FirstPerson
+Content/Input
+Content/Variant_Horror
+Content/Variant_Shooter
+Content/Weapons
