@@ -29,6 +29,22 @@ struct F_ServerInfo
 };
 
 /**
+ * @class US_UI_VM_ServerListEntry
+ * @brief A UObject wrapper for F_ServerInfo to be used with UListView.
+ * The widget entry for the list view should implement IUserObjectListEntry
+ * and cast the UObject to this class.
+ */
+UCLASS()
+class STRAFEUI_API US_UI_VM_ServerListEntry : public UObject
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(BlueprintReadOnly, Category = "Server Info")
+	F_ServerInfo ServerInfo;
+};
+
+
+/**
  * @class US_UI_VM_ServerBrowser
  * @brief ViewModel for the Server Browser screen.
  *

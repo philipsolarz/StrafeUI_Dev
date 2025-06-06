@@ -33,9 +33,7 @@ private:
     void OnServerListUpdated();
 
     //~ Button Click Handlers
-    UFUNCTION()
-    void HandleRefreshClicked();
-
+    // The declaration for HandleRefreshClicked() is removed from here.
     UFUNCTION()
     void HandleJoinClicked();
 

@@ -4,6 +4,7 @@
 #include "Components/ListView.h"
 #include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
+// No need to include the VM header here as it's already in the widget's .h file
 
 void US_UI_FindGameWidget::SetViewModel(US_UI_VM_ServerBrowser* InViewModel)
 {
@@ -23,13 +24,13 @@ void US_UI_FindGameWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
 
-    if (Btn_Refresh)
+    if (Btn_Refresh && ViewModel.IsValid())
     {
-        Btn_Refresh->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleRefreshClicked);
+        // Pure MVVM approach: Bind button click directly to the ViewModel's function.
+        Btn_Refresh->OnClicked().AddUObject(ViewModel.Get(), &US_UI_VM_ServerBrowser::RequestServerListRefresh);
     }
     if (Btn_Join)
     {
-        // TODO: Implement join logic, likely using List_Servers->GetSelectedItem()
         Btn_Join->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleJoinClicked);
     }
     if (Btn_Back)
@@ -47,31 +48,24 @@ void US_UI_FindGameWidget::OnServerListUpdated()
         // Populate the list view with data from the ViewModel.
         for (const F_ServerInfo& ServerInfo : ViewModel->ServerList)
         {
-            // You would typically use a dedicated UObject for list view items.
-            // For simplicity, we are just logging here.
-            // Example: UMyServerEntryObject* Entry = NewObject<UMyServerEntryObject>();
-            // Entry->ServerInfo = ServerInfo;
-            // List_Servers->AddItem(Entry);
-            UE_LOG(LogTemp, Log, TEXT("Displaying server: %s"), *ServerInfo.ServerName.ToString());
-        }
-    }
-}
+            // Create a UObject wrapper for our list entry data
+            US_UI_VM_ServerListEntry* Entry = NewObject<US_UI_VM_ServerListEntry>(this);
+            Entry->ServerInfo = ServerInfo;
 
-void US_UI_FindGameWidget::HandleRefreshClicked()
-{
-    if (ViewModel.IsValid())
-    {
-        ViewModel->RequestServerListRefresh();
+            // Add the data object to the list view. The list view will create a widget for it.
+            List_Servers->AddItem(Entry);
+        }
     }
 }
 
 void US_UI_FindGameWidget::HandleJoinClicked()
 {
     // Join logic would go here.
-    UObject* SelectedItem = List_Servers ? List_Servers->GetSelectedItem<UObject>() : nullptr;
-    if (SelectedItem)
+    if (const US_UI_VM_ServerListEntry* SelectedItem = List_Servers ? List_Servers->GetSelectedItem<US_UI_VM_ServerListEntry>() : nullptr)
     {
-        UE_LOG(LogTemp, Log, TEXT("Attempting to join selected server..."));
+        UE_LOG(LogTemp, Log, TEXT("Attempting to join selected server: %s"), *SelectedItem->ServerInfo.ServerName.ToString());
+        // In a real game, you would use this data to initiate a connection.
+        // For example: GetWorld()->GetGameInstance()->JoinSession(..., SelectedItem->ServerInfo.SessionData);
     }
 }
 
