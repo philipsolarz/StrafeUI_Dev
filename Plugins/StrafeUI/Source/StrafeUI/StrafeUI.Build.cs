@@ -26,6 +26,12 @@ public class StrafeUI : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
+				"UMG",
+				"CommonUI",
+				"EnhancedInput",
+				"DeveloperSettings"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
