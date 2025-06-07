@@ -97,6 +97,6 @@ void US_UI_SettingsWidget::HandleBackClicked()
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
         // Optionally, ask the user if they want to apply changes before leaving.
-        UISubsystem->PopScreen();
+        UISubsystem->PopContentScreen();
     }
 }

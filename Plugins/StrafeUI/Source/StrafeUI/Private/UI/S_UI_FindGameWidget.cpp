@@ -73,6 +73,6 @@ void US_UI_FindGameWidget::HandleBackClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->PopScreen();
+        UISubsystem->PopContentScreen();
     }
 }

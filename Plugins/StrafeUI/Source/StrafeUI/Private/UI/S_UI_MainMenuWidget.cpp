@@ -33,7 +33,7 @@ void US_UI_MainMenuWidget::HandleCreateGameClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->PushScreen(E_UIScreenId::CreateGame);
+        UISubsystem->SwitchContentScreen(E_UIScreenId::CreateGame);
     }
 }
 
@@ -41,7 +41,7 @@ void US_UI_MainMenuWidget::HandleFindGameClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->PushScreen(E_UIScreenId::FindGame);
+        UISubsystem->SwitchContentScreen(E_UIScreenId::FindGame);
     }
 }
 
@@ -49,7 +49,7 @@ void US_UI_MainMenuWidget::HandleSettingsClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->PushScreen(E_UIScreenId::Settings);
+        UISubsystem->SwitchContentScreen(E_UIScreenId::Settings);
     }
 }
 
