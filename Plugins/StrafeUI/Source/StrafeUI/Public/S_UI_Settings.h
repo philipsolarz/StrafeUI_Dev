@@ -8,15 +8,37 @@
 #include "S_UI_ModalStack.h"
 #include "Data/S_UI_ScreenDataAsset.h"
 #include "UI/S_UI_RootWidget.h"
-#include "UI/S_UI_MainMenuWidget.h" // Added for MainMenuWidgetClass
+#include "UI/S_UI_MainMenuWidget.h"
 #include "UI/S_UI_ModalWidget.h"
-#include "InputAction.h" // Required for UInputAction
+#include "InputAction.h"
+#include "GameFramework/GameModeBase.h" // Required for AGameModeBase
+#include "Engine/World.h" // Required for UWorld
 #include "S_UI_Settings.generated.h"
 
 /**
+ * Defines a game mode and the list of maps compatible with it.
+ */
+USTRUCT(BlueprintType)
+struct FStrafeGameModeInfo
+{
+	GENERATED_BODY()
+
+	/** The name displayed in the UI for this game mode. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Mode")
+	FText DisplayName;
+
+	/** A reference to the Game Mode's Blueprint asset. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Mode")
+	TSoftClassPtr<AGameModeBase> GameModeClass;
+
+	/** The list of maps that can be played with this game mode. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Mode")
+	TArray<TSoftObjectPtr<UWorld>> CompatibleMaps;
+};
+
+
+/**
  * Defines all configurable settings for the StrafeUI plugin.
- * This allows for easy configuration via the Project Settings window,
- * removing the need for Blueprint subclasses of core systems.
  */
 UCLASS(Config = Game, defaultconfig, meta = (DisplayName = "Strafe UI"))
 class STRAFEUI_API US_UI_Settings : public UDeveloperSettings
@@ -24,6 +46,7 @@ class STRAFEUI_API US_UI_Settings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
+	//~ Begin Core Settings
 	/** The widget class to use for the root of the UI. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Core")
 	TSoftClassPtr<US_UI_RootWidget> RootWidgetClass;
@@ -47,7 +70,15 @@ public:
 	/** The class to use for the UI Modal Stack. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Core")
 	TSoftClassPtr<US_UI_ModalStack> ModalStackClass;
+	//~ End Core Settings
 
+	//~ Begin Create Game Screen Settings
+	/** The list of all game modes and their compatible maps available to be created. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Create Game Screen")
+	TArray<FStrafeGameModeInfo> AvailableGameModes;
+	//~ End Create Game Screen Settings
+
+	//~ Begin Input Settings
 	/** Input Action for UI Navigation (e.g., Gamepad D-pad, WASD). */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TSoftObjectPtr<UInputAction> NavigateAction;
@@ -59,4 +90,5 @@ public:
 	/** Input Action for going back or canceling. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TSoftObjectPtr<UInputAction> BackAction;
+	//~ End Input Settings
 };

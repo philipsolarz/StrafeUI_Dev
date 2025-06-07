@@ -31,7 +31,8 @@ public class StrafeUI : ModuleRules
 				"UMG",
 				"CommonUI",
 				"EnhancedInput",
-				"DeveloperSettings"
+				"DeveloperSettings",
+				"AssetRegistry"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
