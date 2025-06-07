@@ -1,7 +1,7 @@
 // Plugins/StrafeUI/Source/StrafeUI/Private/S_UI_PlayerController.cpp
 
 #include "S_UI_PlayerController.h"
-#include "S_UI_Subsystem.h" // Include the subsystem header
+#include "S_UI_Subsystem.h" 
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "Blueprint/UserWidget.h"
@@ -10,10 +10,9 @@ void AS_UI_PlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Get the Enhanced Input Local Player Subsystem
+	// Set up the UI and input for the main menu.
 	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
 	{
-		// Tell the UI Subsystem to create the UI for this player.
 		if (US_UI_Subsystem* UISubsystem = LocalPlayer->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
 		{
 			UISubsystem->InitializeUIForPlayer(this);
@@ -21,7 +20,6 @@ void AS_UI_PlayerController::BeginPlay()
 
 		if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 		{
-			// Add the UI Input Mapping Context
 			if (UIInputMappingContext)
 			{
 				InputSubsystem->AddMappingContext(UIInputMappingContext, 0);
@@ -29,11 +27,19 @@ void AS_UI_PlayerController::BeginPlay()
 		}
 	}
 
-	// Show the mouse cursor
 	SetShowMouseCursor(true);
-
-	// Set the input mode to UI Only so the mouse can interact with widgets
 	FInputModeUIOnly InputMode;
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	SetInputMode(InputMode);
+}
+
+void AS_UI_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// When this PlayerController is destroyed (e.g., when traveling to a new level),
+	// we must clean up the input mode to ensure the next PlayerController has control.
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
+	SetShowMouseCursor(false);
+
+	Super::EndPlay(EndPlayReason);
 }

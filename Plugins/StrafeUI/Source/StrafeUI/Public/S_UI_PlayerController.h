@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Plugins/StrafeUI/Source/StrafeUI/Public/S_UI_PlayerController.h
 
 #pragma once
 
@@ -7,9 +7,7 @@
 #include "S_UI_PlayerController.generated.h"
 
 class UInputMappingContext;
-/**
- * 
- */
+
 UCLASS()
 class STRAFEUI_API AS_UI_PlayerController : public APlayerController
 {
@@ -21,4 +19,7 @@ protected:
 	TObjectPtr<UInputMappingContext> UIInputMappingContext;
 
 	virtual void BeginPlay() override;
+
+	/** Called when the controller is being destroyed. */
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

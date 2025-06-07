@@ -16,8 +16,10 @@
 #include "S_UI_PlayerController.h"
 #include "UI/S_UI_RootWidget.h"
 #include "UI/S_UI_MainMenuWidget.h"
+#include "UI/S_UI_CreateGameWidget.h"
 #include "UI/S_UI_FindGameWidget.h"
 #include "UI/S_UI_SettingsWidget.h"
+#include "ViewModel/S_UI_VM_CreateGame.h"
 #include "ViewModel/S_UI_VM_ServerBrowser.h"
 #include "ViewModel/S_UI_VM_Settings.h"
 #include "Widgets/CommonActivatableWidgetContainer.h"
@@ -209,6 +211,13 @@ void US_UI_Subsystem::SwitchContentScreen(const E_UIScreenId ScreenId)
 		{
 			US_UI_VM_Settings* SettingsVM = NewObject<US_UI_VM_Settings>(this);
 			SettingsWidget->SetViewModel(SettingsVM);
+		}
+		else if (US_UI_CreateGameWidget* CreateGameWidget = Cast<US_UI_CreateGameWidget>(PushedWidget))
+		{
+			US_UI_VM_CreateGame* CreateGameVM = NewObject<US_UI_VM_CreateGame>(this);
+			// Pass the settings object to the new initializer
+			CreateGameVM->Initialize(GetDefault<US_UI_Settings>());
+			CreateGameWidget->SetViewModel(CreateGameVM);
 		}
 	}
 	else
