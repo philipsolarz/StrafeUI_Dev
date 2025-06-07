@@ -37,17 +37,17 @@ public:
 	void InitializeUIForPlayer(AS_UI_PlayerController* PlayerController);
 
 	/**
-	 * Pushes a new screen onto the UI stack, making it the active screen.
-	 * @param ScreenId The unique identifier of the screen to display.
+	 * Switches the active content screen. This clears any previous content screen.
+	 * @param ScreenId The unique identifier of the content screen to display.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UI Subsystem")
-	void PushScreen(const E_UIScreenId ScreenId);
+	void SwitchContentScreen(const E_UIScreenId ScreenId);
 
 	/**
-	 * Pops the current screen from the UI stack, returning to the previous one.
+	 * Pops the current screen from the content stack, if any are stacked.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UI Subsystem")
-	void PopScreen();
+	void PopContentScreen();
 
 	/**
 	 * Requests to display a modal dialog with a specified payload and callback.

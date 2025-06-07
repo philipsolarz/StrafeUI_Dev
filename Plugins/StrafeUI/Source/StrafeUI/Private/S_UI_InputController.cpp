@@ -40,7 +40,8 @@ void US_UI_InputController::OnNavigate(const FInputActionValue& Value)
 
 	if (UISubsystem && UISubsystem->GetRootWidget())
 	{
-		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetMainStack()->GetActiveWidget()))
+		// Navigation should now be routed to the active widget in the *content* stack
+		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetContentStack()->GetActiveWidget()))
 		{
 			ActiveWidget->HandleNavigation(NavDirection);
 		}
@@ -53,7 +54,7 @@ void US_UI_InputController::OnAccept(const FInputActionValue& Value)
 
 	if (UISubsystem && UISubsystem->GetRootWidget())
 	{
-		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetMainStack()->GetActiveWidget()))
+		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetContentStack()->GetActiveWidget()))
 		{
 			ActiveWidget->HandleAccept();
 		}
@@ -66,6 +67,7 @@ void US_UI_InputController::OnBack(const FInputActionValue& Value)
 
 	if (UISubsystem)
 	{
-		UISubsystem->PopScreen();
+		// Use the new function to pop from the content stack
+		UISubsystem->PopContentScreen();
 	}
 }

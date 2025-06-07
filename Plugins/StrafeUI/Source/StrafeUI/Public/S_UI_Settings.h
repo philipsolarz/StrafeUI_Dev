@@ -8,6 +8,7 @@
 #include "S_UI_ModalStack.h"
 #include "Data/S_UI_ScreenDataAsset.h"
 #include "UI/S_UI_RootWidget.h"
+#include "UI/S_UI_MainMenuWidget.h" // Added for MainMenuWidgetClass
 #include "UI/S_UI_ModalWidget.h"
 #include "InputAction.h" // Required for UInputAction
 #include "S_UI_Settings.generated.h"
@@ -27,7 +28,11 @@ public:
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Core")
 	TSoftClassPtr<US_UI_RootWidget> RootWidgetClass;
 
-	/** Data asset containing the mapping of screen IDs to widget classes. */
+	/** The widget class to use for the persistent Main Menu sidebar. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Core")
+	TSoftClassPtr<US_UI_MainMenuWidget> MainMenuWidgetClass;
+
+	/** Data asset containing the mapping of content screen IDs to widget classes. */
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Core")
 	TSoftObjectPtr<US_UI_ScreenDataAsset> ScreenMapDataAsset;
 

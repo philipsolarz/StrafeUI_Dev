@@ -24,13 +24,13 @@ DECLARE_DELEGATE_OneParam(FOnModalDismissedSignature, bool);
 
 /**
  * @enum E_UIScreenId
- * @brief Uniquely identifies all primary UI screens within the application.
+ * @brief Uniquely identifies all primary UI content areas within the application.
+ * Note: MainMenu has been removed as it is now a persistent widget, not a screen.
  */
 UENUM(BlueprintType)
 enum class E_UIScreenId : uint8
 {
 	None			UMETA(DisplayName = "None"),
-	MainMenu		UMETA(DisplayName = "Main Menu"),
 	CreateGame		UMETA(DisplayName = "Create Game"),
 	FindGame		UMETA(DisplayName = "Find Game"),
 	Leaderboards	UMETA(DisplayName = "Leaderboards"),

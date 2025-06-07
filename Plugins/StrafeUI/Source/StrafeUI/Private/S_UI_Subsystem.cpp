@@ -15,21 +15,19 @@
 #include "S_UI_ModalStack.h"
 #include "S_UI_PlayerController.h"
 #include "UI/S_UI_RootWidget.h"
+#include "UI/S_UI_MainMenuWidget.h"
 #include "UI/S_UI_FindGameWidget.h"
 #include "UI/S_UI_SettingsWidget.h"
 #include "ViewModel/S_UI_VM_ServerBrowser.h"
 #include "ViewModel/S_UI_VM_Settings.h"
 #include "Widgets/CommonActivatableWidgetContainer.h"
+#include "Components/NamedSlot.h"
 
 
 void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initializing..."));
-
-	// Don't load any assets here - just basic initialization
-	// Modal stack creation is now deferred
-
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initialized"));
 }
 
@@ -142,8 +140,21 @@ void US_UI_Subsystem::InitializeUIForPlayer(AS_UI_PlayerController* PlayerContro
 		if (UIRootWidget)
 		{
 			UIRootWidget->AddToViewport();
-			// 3. Push the initial screen
-			PushScreen(E_UIScreenId::MainMenu);
+
+			// 3. Create and add the persistent Main Menu widget
+			if (const TSubclassOf<US_UI_MainMenuWidget> MainMenuClass = Settings->MainMenuWidgetClass.LoadSynchronous())
+			{
+				US_UI_MainMenuWidget* MainMenuWidget = CreateWidget<US_UI_MainMenuWidget>(PlayerController, MainMenuClass);
+				if (MainMenuWidget && UIRootWidget->GetMainMenuSlot())
+				{
+					UIRootWidget->GetMainMenuSlot()->AddChild(MainMenuWidget);
+					UE_LOG(LogTemp, Log, TEXT("Main Menu widget added to root layout."));
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: MainMenuWidgetClass is not set in Project Settings -> Strafe UI!"));
+			}
 		}
 	}
 	else
@@ -164,27 +175,29 @@ void US_UI_Subsystem::Deinitialize()
 }
 
 
-void US_UI_Subsystem::PushScreen(const E_UIScreenId ScreenId)
+void US_UI_Subsystem::SwitchContentScreen(const E_UIScreenId ScreenId)
 {
 	if (ScreenId == E_UIScreenId::None)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("PushScreen failed: Invalid ScreenId 'None' provided."));
+		UE_LOG(LogTemp, Warning, TEXT("SwitchContentScreen failed: Invalid ScreenId 'None' provided."));
 		return;
 	}
 
-	if (!UIRootWidget || !UIRootWidget->GetMainStack())
+	if (!UIRootWidget || !UIRootWidget->GetContentStack())
 	{
-		UE_LOG(LogTemp, Error, TEXT("PushScreen failed: UIRootWidget or its MainStack is null."));
+		UE_LOG(LogTemp, Error, TEXT("SwitchContentScreen failed: UIRootWidget or its ContentStack is null."));
 		return;
 	}
+
+	// For tab-like behavior, clear any existing widgets in the content stack
+	UIRootWidget->GetContentStack()->ClearWidgets();
 
 	// Find the widget class from our cache
 	if (const TSubclassOf<UCommonActivatableWidget>* FoundWidgetClass = ScreenWidgetClassCache.Find(ScreenId))
 	{
-		// --- CORRECTED FUNCTION CALL ---
-		// Add the widget to the root's main stack. This returns the created instance.
-		UCommonActivatableWidget* PushedWidget = UIRootWidget->GetMainStack()->AddWidget<UCommonActivatableWidget>(*FoundWidgetClass);
-		UE_LOG(LogTemp, Verbose, TEXT("Pushed screen: %s"), *UEnum::GetValueAsString(ScreenId));
+		// Add the new widget to the root's content stack. This returns the created instance.
+		UCommonActivatableWidget* PushedWidget = UIRootWidget->GetContentStack()->AddWidget<UCommonActivatableWidget>(*FoundWidgetClass);
+		UE_LOG(LogTemp, Verbose, TEXT("Switched content screen to: %s"), *UEnum::GetValueAsString(ScreenId));
 
 		// --- ViewModel Injection ---
 		if (US_UI_FindGameWidget* FindGameWidget = Cast<US_UI_FindGameWidget>(PushedWidget))
@@ -200,20 +213,18 @@ void US_UI_Subsystem::PushScreen(const E_UIScreenId ScreenId)
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("PushScreen failed: No widget class found for ScreenId %s."), *UEnum::GetValueAsString(ScreenId));
+		UE_LOG(LogTemp, Error, TEXT("SwitchContentScreen failed: No widget class found for ScreenId %s."), *UEnum::GetValueAsString(ScreenId));
 	}
 }
 
-void US_UI_Subsystem::PopScreen()
+void US_UI_Subsystem::PopContentScreen()
 {
-	if (UIRootWidget && UIRootWidget->GetMainStack())
+	if (UIRootWidget && UIRootWidget->GetContentStack())
 	{
-		// --- CORRECTED LOGIC ---
-		// Get the currently active widget and deactivate it. The stack will handle the rest.
-		if (UCommonActivatableWidget* ActiveWidget = UIRootWidget->GetMainStack()->GetActiveWidget())
+		if (UCommonActivatableWidget* ActiveWidget = UIRootWidget->GetContentStack()->GetActiveWidget())
 		{
 			ActiveWidget->DeactivateWidget();
-			UE_LOG(LogTemp, Verbose, TEXT("Popping current screen."));
+			UE_LOG(LogTemp, Verbose, TEXT("Popping current content screen."));
 		}
 	}
 }
