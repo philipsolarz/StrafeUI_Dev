@@ -22,47 +22,43 @@ void US_UI_ModalStack::QueueModal(const F_UIModalPayload& Payload, const FOnModa
 
 void US_UI_ModalStack::TryDisplayNextModal()
 {
-	if (ActiveModal || ModalRequestQueue.Num() == 0)
-	{
-		return;
-	}
+    if (ActiveModal || ModalRequestQueue.Num() == 0)
+    {
+        return;
+    }
 
-	if (!ModalWidgetClass.IsValid() && !ModalWidgetClass.IsPending())
-	{
-		ModalWidgetClass.LoadSynchronous();
-	}
+    // The class should already be loaded when Initialize was called
+    if (!ModalWidgetClass.IsValid())
+    {
+        UE_LOG(LogTemp, Error, TEXT("ModalStack: ModalWidgetClass is not valid! This should have been set during initialization."));
+        if (ModalRequestQueue.Num() > 0)
+        {
+            ModalRequestQueue.RemoveAt(0);
+        }
+        return;
+    }
 
-	if (!ModalWidgetClass.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("ModalStack: ModalWidgetClass is not set in Project Settings -> Strafe UI or failed to load!"));
-		if (ModalRequestQueue.Num() > 0)
-		{
-			ModalRequestQueue.RemoveAt(0);
-		}
-		return;
-	}
+    const F_UIModalRequest& NextRequest = ModalRequestQueue[0];
 
+    APlayerController* PC = UISubsystem->GetGameInstance()->GetFirstLocalPlayerController();
+    if (!PC)
+    {
+        return;
+    }
 
-	const F_UIModalRequest& NextRequest = ModalRequestQueue[0];
+    // Use Get() since we know it's already loaded
+    US_UI_ModalWidget* NewModal = CreateWidget<US_UI_ModalWidget>(PC, ModalWidgetClass.Get());
+    if (NewModal)
+    {
+        ActiveModal = NewModal;
+        ActiveModalDismissedCallback = NextRequest.OnDismissedCallback;
 
-	APlayerController* PC = UISubsystem->GetGameInstance()->GetFirstLocalPlayerController();
-	if (!PC)
-	{
-		return;
-	}
+        NewModal->SetupModal(NextRequest.Payload);
+        NewModal->OnDismissed.AddDynamic(this, &US_UI_ModalStack::OnModalDismissed);
+        NewModal->AddToViewport(100); // High Z-order to ensure it's on top
+    }
 
-	US_UI_ModalWidget* NewModal = CreateWidget<US_UI_ModalWidget>(PC, ModalWidgetClass.Get());
-	if (NewModal)
-	{
-		ActiveModal = NewModal;
-		ActiveModalDismissedCallback = NextRequest.OnDismissedCallback;
-
-		NewModal->SetupModal(NextRequest.Payload);
-		NewModal->OnDismissed.AddDynamic(this, &US_UI_ModalStack::OnModalDismissed);
-		NewModal->AddToViewport(100); // High Z-order to ensure it's on top
-	}
-
-	ModalRequestQueue.RemoveAt(0);
+    ModalRequestQueue.RemoveAt(0);
 }
 
 void US_UI_ModalStack::OnModalDismissed(bool bConfirmed)

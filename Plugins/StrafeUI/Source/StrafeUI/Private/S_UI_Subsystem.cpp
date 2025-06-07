@@ -27,6 +27,19 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initializing..."));
 
+	// Don't load any assets here - just basic initialization
+	// Modal stack creation is now deferred
+
+	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initialized"));
+}
+
+void US_UI_Subsystem::EnsureAssetsLoaded()
+{
+	if (bAssetsLoaded)
+	{
+		return;
+	}
+
 	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
 	if (!Settings)
 	{
@@ -34,37 +47,77 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 		return;
 	}
 
-	// Pre-load the screen definitions
-	if (const US_UI_ScreenDataAsset* ScreenData = Settings->ScreenMapDataAsset.LoadSynchronous())
+	// Initialize the modal stack if not already created
+	if (!ModalStack)
+	{
+		// Force load the modal stack class
+		UClass* LoadedModalStackClass = Settings->ModalStackClass.LoadSynchronous();
+		if (LoadedModalStackClass)
+		{
+			ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
+
+			// Force load the modal widget class before initializing
+			UClass* LoadedModalWidgetClass = Settings->ModalWidgetClass.LoadSynchronous();
+			if (LoadedModalWidgetClass)
+			{
+				ModalStack->Initialize(this, TSoftClassPtr<US_UI_ModalWidget>(LoadedModalWidgetClass));
+				UE_LOG(LogTemp, Log, TEXT("Modal stack initialized with widget class: %s"),
+					*LoadedModalWidgetClass->GetName());
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("Failed to load ModalWidgetClass!"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to load ModalStackClass!"));
+		}
+	}
+
+	// Force load the screen data asset
+	UObject* LoadedAsset = Settings->ScreenMapDataAsset.LoadSynchronous();
+	if (!LoadedAsset)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to load ScreenMapDataAsset!"));
+		return;
+	}
+
+	if (const US_UI_ScreenDataAsset* ScreenData = Cast<US_UI_ScreenDataAsset>(LoadedAsset))
 	{
 		for (const F_UIScreenDefinition& Definition : ScreenData->ScreenDefinitions)
 		{
-			if (Definition.WidgetClass)
+			if (Definition.WidgetClass.IsValid() || Definition.WidgetClass.IsPending())
 			{
-				ScreenWidgetClassCache.Add(Definition.ScreenId, Definition.WidgetClass.LoadSynchronous());
+				UClass* LoadedClass = Definition.WidgetClass.LoadSynchronous();
+				if (LoadedClass)
+				{
+					ScreenWidgetClassCache.Add(Definition.ScreenId, LoadedClass);
+					UE_LOG(LogTemp, Log, TEXT("Loaded screen %s -> %s"),
+						*UEnum::GetValueAsString(Definition.ScreenId),
+						*LoadedClass->GetName());
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Failed to load widget class for %s"),
+						*UEnum::GetValueAsString(Definition.ScreenId));
+				}
 			}
 		}
 	}
 
-	// Initialize the modal stack, as it doesn't depend on a player controller
-	if (TSubclassOf<US_UI_ModalStack> LoadedModalStackClass = Settings->ModalStackClass.LoadSynchronous())
-	{
-		ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
-		ModalStack->Initialize(this, Settings->ModalWidgetClass);
-	}
-
-	// NOTE: We no longer create the UI Root or Input Controller here.
-
-	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initialized"));
+	bAssetsLoaded = true;
 }
 
 void US_UI_Subsystem::InitializeUIForPlayer(AS_UI_PlayerController* PlayerController)
 {
 	if (!PlayerController || UIRootWidget)
 	{
-		// Prevent initialization if the player is invalid or if UI has already been created.
 		return;
 	}
+
+	// Ensure assets are loaded before creating UI
+	EnsureAssetsLoaded();
 
 	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
 	if (!Settings)
@@ -167,9 +220,16 @@ void US_UI_Subsystem::PopScreen()
 
 void US_UI_Subsystem::RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback)
 {
+	// Ensure assets are loaded before trying to use modal stack
+	EnsureAssetsLoaded();
+
 	if (ModalStack)
 	{
 		ModalStack->QueueModal(Payload, OnDismissedCallback);
+		UE_LOG(LogTemp, Verbose, TEXT("Modal requested with message: %s"), *Payload.Message.ToString());
 	}
-	UE_LOG(LogTemp, Verbose, TEXT("Modal requested with message: %s"), *Payload.Message.ToString());
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("RequestModal failed: ModalStack is not initialized!"));
+	}
 }

@@ -79,4 +79,7 @@ private:
 	/** The root widget for the UI, which contains the main layout and screen host. */
 	UPROPERTY()
 	TObjectPtr<US_UI_RootWidget> UIRootWidget;
+
+	bool bAssetsLoaded = false;
+	void EnsureAssetsLoaded();
 };
