@@ -8,13 +8,12 @@
 #include "S_UI_SettingsWidget.generated.h"
 
 class UCommonButtonBase;
-class USlider;
-class UCheckBox;
+class US_UI_TabControl;
+class US_UI_SettingsTabBase;
 
 /**
  * @class S_UI_SettingsWidget
- * @brief The C++ base for the Settings screen.
- * Binds to a ViewModel to display and modify game settings.
+ * @brief The C++ base for the Settings screen with tabbed interface.
  */
 UCLASS(Abstract)
 class STRAFEUI_API US_UI_SettingsWidget : public US_UI_BaseScreenWidget
@@ -27,19 +26,15 @@ public:
 
 protected:
     virtual void NativeOnInitialized() override;
+    virtual void NativeDestruct() override;
 
 private:
-    /** Called when the ViewModel's data has changed, refreshing the UI controls. */
-    UFUNCTION()
-    void OnSettingsUpdated();
+    /** Initializes the tab control with settings categories. */
+    void InitializeSettingsTabs();
 
-    /** Called when the VSync checkbox state changes. */
+    /** Called when a settings tab is selected. */
     UFUNCTION()
-    void OnVSyncCheckStateChanged(bool bIsChecked);
-
-    /** Called when the volume slider value changes. */
-    UFUNCTION()
-    void OnVolumeSliderChanged(float Value);
+    void OnSettingsTabSelected(int32 TabIndex, FName TabTag);
 
     //~ Button Click Handlers
     UFUNCTION()
@@ -57,10 +52,7 @@ private:
 
     //~ UPROPERTY Bindings for UI elements
     UPROPERTY(meta = (BindWidget))
-    TObjectPtr<USlider> Slider_MasterVolume;
-
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UCheckBox> CheckBox_VSync;
+    TObjectPtr<US_UI_TabControl> TabControl;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UCommonButtonBase> Btn_Apply;
@@ -70,4 +62,8 @@ private:
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UCommonButtonBase> Btn_Back;
+
+    /** Array of all settings tab content widgets. */
+    UPROPERTY()
+    TArray<US_UI_SettingsTabBase*> SettingsTabs;
 };

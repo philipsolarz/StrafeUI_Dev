@@ -1,38 +1,142 @@
 // Plugins/StrafeUI/Source/StrafeUI/Private/ViewModel/S_UI_VM_Settings.cpp
 
 #include "ViewModel/S_UI_VM_Settings.h"
+#include "GameFramework/GameUserSettings.h"
+#include "Engine/Engine.h"
 
 void US_UI_VM_Settings::ApplySettings()
 {
-	// In a real implementation, you would save these properties
-	// to a config file (e.g., UGameUserSettings).
-	UE_LOG(LogTemp, Log, TEXT("Applying settings: MasterVolume=%f, VSync=%d, ShadowQuality=%d"),
-		MasterVolume, bUseVSync, ShadowQuality);
+    // Apply audio settings
+    if (UAudioSettings* AudioSettings = GetMutableDefault<UAudioSettings>())
+    {
+        // In a real implementation, apply audio settings to the audio system
+        UE_LOG(LogTemp, Log, TEXT("Applying audio settings: Master=%f, Music=%f, SFX=%f, Voice=%f"),
+            MasterVolume, MusicVolume, SFXVolume, VoiceVolume);
+    }
 
-	// After applying, broadcast that data has changed in case any other system needs to know.
-	// For settings, this is less common but good practice.
-	BroadcastDataChanged();
+    // Apply video settings
+    if (UGameUserSettings* UserSettings = UGameUserSettings::GetGameUserSettings())
+    {
+        UserSettings->SetVSyncEnabled(bUseVSync);
+        UserSettings->SetShadowQuality(ShadowQuality);
+        UserSettings->SetTextureQuality(TextureQuality);
+        UserSettings->SetAntiAliasingQuality(AntiAliasingMode);
+
+        UserSettings->ApplySettings(false);
+    }
+
+    // Apply controls settings
+    // In a real implementation, save to input config
+
+    // Apply gameplay settings
+    // In a real implementation, apply FOV and other gameplay settings
+
+    // Cache the applied settings
+    CacheCurrentSettings();
+
+    UE_LOG(LogTemp, Log, TEXT("Settings applied successfully"));
+    BroadcastDataChanged();
 }
 
 void US_UI_VM_Settings::RevertChanges()
 {
-	// In a real implementation, you would reload the settings from the config file,
-	// overwriting any changes made in the UI that haven't been applied yet.
-	UE_LOG(LogTemp, Log, TEXT("Reverting settings changes."));
-
-	// For this example, we'll just restore to defaults as a stand-in.
-	RestoreDefaults();
+    RestoreFromCache();
+    BroadcastDataChanged();
+    UE_LOG(LogTemp, Log, TEXT("Settings reverted"));
 }
 
 void US_UI_VM_Settings::RestoreDefaults()
 {
-	UE_LOG(LogTemp, Log, TEXT("Restoring default settings."));
+    // Audio defaults
+    MasterVolume = 1.0f;
+    MusicVolume = 1.0f;
+    SFXVolume = 1.0f;
+    VoiceVolume = 1.0f;
 
-	// Set properties to their default values.
-	MasterVolume = 1.0f;
-	bUseVSync = true;
-	ShadowQuality = 2;
+    // Video defaults
+    bUseVSync = true;
+    ShadowQuality = 2;
+    TextureQuality = 2;
+    AntiAliasingMode = 2;
+    ResolutionIndex = 0;
+    WindowMode = 0;
 
-	// Broadcast the change so the UI updates to show the default values.
-	BroadcastDataChanged();
+    // Controls defaults
+    MouseSensitivity = 1.0f;
+    bInvertYAxis = false;
+
+    // Gameplay defaults
+    FieldOfView = 90.0f;
+    bShowFPSCounter = false;
+
+    BroadcastDataChanged();
+    UE_LOG(LogTemp, Log, TEXT("Settings restored to defaults"));
+}
+
+void US_UI_VM_Settings::LoadSettings()
+{
+    // Load from game user settings
+    if (UGameUserSettings* UserSettings = UGameUserSettings::GetGameUserSettings())
+    {
+        bUseVSync = UserSettings->IsVSyncEnabled();
+        ShadowQuality = UserSettings->GetShadowQuality();
+        TextureQuality = UserSettings->GetTextureQuality();
+        AntiAliasingMode = UserSettings->GetAntiAliasingQuality();
+
+        // Load other settings from config files
+        // In a real implementation, load all settings from appropriate sources
+    }
+
+    CacheCurrentSettings();
+    BroadcastDataChanged();
+}
+
+void US_UI_VM_Settings::CacheCurrentSettings()
+{
+    // Audio
+    CachedSettings.MasterVolume = MasterVolume;
+    CachedSettings.MusicVolume = MusicVolume;
+    CachedSettings.SFXVolume = SFXVolume;
+    CachedSettings.VoiceVolume = VoiceVolume;
+
+    // Video
+    CachedSettings.bUseVSync = bUseVSync;
+    CachedSettings.ShadowQuality = ShadowQuality;
+    CachedSettings.TextureQuality = TextureQuality;
+    CachedSettings.AntiAliasingMode = AntiAliasingMode;
+    CachedSettings.ResolutionIndex = ResolutionIndex;
+    CachedSettings.WindowMode = WindowMode;
+
+    // Controls
+    CachedSettings.MouseSensitivity = MouseSensitivity;
+    CachedSettings.bInvertYAxis = bInvertYAxis;
+
+    // Gameplay
+    CachedSettings.FieldOfView = FieldOfView;
+    CachedSettings.bShowFPSCounter = bShowFPSCounter;
+}
+
+void US_UI_VM_Settings::RestoreFromCache()
+{
+    // Audio
+    MasterVolume = CachedSettings.MasterVolume;
+    MusicVolume = CachedSettings.MusicVolume;
+    SFXVolume = CachedSettings.SFXVolume;
+    VoiceVolume = CachedSettings.VoiceVolume;
+
+    // Video
+    bUseVSync = CachedSettings.bUseVSync;
+    ShadowQuality = CachedSettings.ShadowQuality;
+    TextureQuality = CachedSettings.TextureQuality;
+    AntiAliasingMode = CachedSettings.AntiAliasingMode;
+    ResolutionIndex = CachedSettings.ResolutionIndex;
+    WindowMode = CachedSettings.WindowMode;
+
+    // Controls
+    MouseSensitivity = CachedSettings.MouseSensitivity;
+    bInvertYAxis = CachedSettings.bInvertYAxis;
+
+    // Gameplay
+    FieldOfView = CachedSettings.FieldOfView;
+    bShowFPSCounter = CachedSettings.bShowFPSCounter;
 }
