@@ -70,6 +70,8 @@ void US_UI_AssetManager::OnScreenMapDataAssetLoaded(FSoftObjectPath ScreenDataAs
     AssetsToLoad.Add(UISettings->VideoSettingsTabClass.ToSoftObjectPath());
     AssetsToLoad.Add(UISettings->ControlsSettingsTabClass.ToSoftObjectPath());
     AssetsToLoad.Add(UISettings->GameplaySettingsTabClass.ToSoftObjectPath());
+    AssetsToLoad.Add(UISettings->PlayerSettingsTabClass.ToSoftObjectPath());
+
 
     for (const F_UIScreenDefinition& Definition : ScreenData->ScreenDefinitions)
     {

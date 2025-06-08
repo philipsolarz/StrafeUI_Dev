@@ -5,8 +5,36 @@
 
 void US_UI_TabButton::SetTabLabelText(const FText& InText)
 {
+    CachedTabText = InText;
     if (TabLabel)
     {
-        TabLabel->SetText(InText);
+        TabLabel->SetText(CachedTabText);
+    }
+}
+
+FText US_UI_TabButton::GetTabLabelText() const
+{
+    return CachedTabText;
+}
+
+void US_UI_TabButton::NativeConstruct()
+{
+    Super::NativeConstruct();
+
+    // Restore the cached text when the widget is constructed
+    if (TabLabel && !CachedTabText.IsEmpty())
+    {
+        TabLabel->SetText(CachedTabText);
+    }
+}
+
+void US_UI_TabButton::NativePreConstruct()
+{
+    Super::NativePreConstruct();
+
+    // Apply any design-time text
+    if (TabLabel && !CachedTabText.IsEmpty())
+    {
+        TabLabel->SetText(CachedTabText);
     }
 }

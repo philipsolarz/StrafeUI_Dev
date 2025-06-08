@@ -1,40 +1,116 @@
 // Plugins/StrafeUI/Source/StrafeUI/Private/ViewModel/S_UI_VM_Settings.cpp
 
 #include "ViewModel/S_UI_VM_Settings.h"
-#include "GameFramework/GameUserSettings.h"
+#include "System/S_GameUserSettings.h"
 #include "Engine/Engine.h"
+
+void US_UI_VM_Settings::Initialize()
+{
+    // Load settings from GameUserSettings on initialization
+    LoadSettings();
+}
+
+void US_UI_VM_Settings::LoadSettings()
+{
+    US_GameUserSettings* GameSettings = US_GameUserSettings::GetStrafeuiGameUserSettings();
+    if (!GameSettings)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to get game user settings"));
+        return;
+    }
+
+    // Load settings from GameUserSettings into our temporary properties
+    // Audio
+    MasterVolume = GameSettings->MasterVolume;
+    MusicVolume = GameSettings->MusicVolume;
+    SFXVolume = GameSettings->SFXVolume;
+    VoiceVolume = GameSettings->VoiceVolume;
+
+    // Video - Get from parent UGameUserSettings
+    bUseVSync = GameSettings->IsVSyncEnabled();
+    ShadowQuality = GameSettings->GetShadowQuality();
+    TextureQuality = GameSettings->GetTextureQuality();
+    AntiAliasingMode = GameSettings->GetAntiAliasingQuality();
+
+    // Get current resolution
+    FIntPoint CurrentRes = GameSettings->GetScreenResolution();
+    ResolutionIndex = GetResolutionIndex(CurrentRes);
+
+    // Get window mode
+    WindowMode = (int32)GameSettings->GetFullscreenMode();
+
+    // Controls
+    MouseSensitivity = GameSettings->MouseSensitivity;
+    bInvertYAxis = GameSettings->bInvertYAxis;
+
+    // Gameplay
+    FieldOfView = GameSettings->FieldOfView;
+    bShowFPSCounter = GameSettings->bShowFPSCounter;
+
+    // Player
+    PlayerName = GameSettings->PlayerName;
+    SelectedCharacterModel = GameSettings->SelectedCharacterModel;
+
+    // Cache the current settings
+    CacheCurrentSettings();
+
+    // Broadcast to update UI
+    BroadcastDataChanged();
+}
 
 void US_UI_VM_Settings::ApplySettings()
 {
-    // Apply audio settings
-    if (UAudioSettings* AudioSettings = GetMutableDefault<UAudioSettings>())
+    US_GameUserSettings* GameSettings = US_GameUserSettings::GetStrafeuiGameUserSettings();
+    if (!GameSettings)
     {
-        // In a real implementation, apply audio settings to the audio system
-        UE_LOG(LogTemp, Log, TEXT("Applying audio settings: Master=%f, Music=%f, SFX=%f, Voice=%f"),
-            MasterVolume, MusicVolume, SFXVolume, VoiceVolume);
+        UE_LOG(LogTemp, Error, TEXT("Failed to get game user settings"));
+        return;
     }
 
-    // Apply video settings
-    if (UGameUserSettings* UserSettings = UGameUserSettings::GetGameUserSettings())
-    {
-        UserSettings->SetVSyncEnabled(bUseVSync);
-        UserSettings->SetShadowQuality(ShadowQuality);
-        UserSettings->SetTextureQuality(TextureQuality);
-        UserSettings->SetAntiAliasingQuality(AntiAliasingMode);
+    // Copy our temporary values to GameUserSettings
+    // Audio
+    GameSettings->MasterVolume = MasterVolume;
+    GameSettings->MusicVolume = MusicVolume;
+    GameSettings->SFXVolume = SFXVolume;
+    GameSettings->VoiceVolume = VoiceVolume;
 
-        UserSettings->ApplySettings(false);
+    // Video
+    GameSettings->SetVSyncEnabled(bUseVSync);
+    GameSettings->SetShadowQuality(ShadowQuality);
+    GameSettings->SetTextureQuality(TextureQuality);
+    GameSettings->SetAntiAliasingQuality(AntiAliasingMode);
+
+    // Set resolution if changed
+    if (ResolutionIndex >= 0 && ResolutionIndex < AvailableResolutions.Num())
+    {
+        GameSettings->SetScreenResolution(AvailableResolutions[ResolutionIndex]);
     }
 
-    // Apply controls settings
-    // In a real implementation, save to input config
+    // Set window mode
+    GameSettings->SetFullscreenMode((EWindowMode::Type)WindowMode);
 
-    // Apply gameplay settings
-    // In a real implementation, apply FOV and other gameplay settings
+    // Controls
+    GameSettings->MouseSensitivity = MouseSensitivity;
+    GameSettings->bInvertYAxis = bInvertYAxis;
 
-    // Cache the applied settings
+    // Gameplay
+    GameSettings->FieldOfView = FieldOfView;
+    GameSettings->bShowFPSCounter = bShowFPSCounter;
+
+    // Player
+    GameSettings->PlayerName = PlayerName;
+    GameSettings->SelectedCharacterModel = SelectedCharacterModel;
+
+    // Apply all settings
+    GameSettings->ApplySettings(false);
+
+    // Save to config
+    GameSettings->SaveSettings();
+
+    // Update our cached values
     CacheCurrentSettings();
 
-    UE_LOG(LogTemp, Log, TEXT("Settings applied successfully"));
+    UE_LOG(LogTemp, Log, TEXT("Settings applied and saved successfully"));
     BroadcastDataChanged();
 }
 
@@ -47,48 +123,71 @@ void US_UI_VM_Settings::RevertChanges()
 
 void US_UI_VM_Settings::RestoreDefaults()
 {
-    // Audio defaults
-    MasterVolume = 1.0f;
-    MusicVolume = 1.0f;
-    SFXVolume = 1.0f;
-    VoiceVolume = 1.0f;
+    US_GameUserSettings* GameSettings = US_GameUserSettings::GetStrafeuiGameUserSettings();
+    if (!GameSettings)
+    {
+        return;
+    }
 
-    // Video defaults
-    bUseVSync = true;
-    ShadowQuality = 2;
-    TextureQuality = 2;
-    AntiAliasingMode = 2;
-    ResolutionIndex = 0;
-    WindowMode = 0;
+    // Reset to defaults
+    GameSettings->SetToDefaults();
 
-    // Controls defaults
-    MouseSensitivity = 1.0f;
-    bInvertYAxis = false;
+    // Reload into our properties
+    LoadSettings();
 
-    // Gameplay defaults
-    FieldOfView = 90.0f;
-    bShowFPSCounter = false;
-
-    BroadcastDataChanged();
     UE_LOG(LogTemp, Log, TEXT("Settings restored to defaults"));
 }
 
-void US_UI_VM_Settings::LoadSettings()
+void US_UI_VM_Settings::PopulateVideoOptions()
 {
-    // Load from game user settings
-    if (UGameUserSettings* UserSettings = UGameUserSettings::GetGameUserSettings())
-    {
-        bUseVSync = UserSettings->IsVSyncEnabled();
-        ShadowQuality = UserSettings->GetShadowQuality();
-        TextureQuality = UserSettings->GetTextureQuality();
-        AntiAliasingMode = UserSettings->GetAntiAliasingQuality();
+    // Get available resolutions
+    AvailableResolutions.Empty();
+    UGameUserSettings::GetResolutionSettings(AvailableResolutions);
 
-        // Load other settings from config files
-        // In a real implementation, load all settings from appropriate sources
+    // Sort resolutions by size (largest first)
+    AvailableResolutions.Sort([](const FIntPoint& A, const FIntPoint& B)
+        {
+            return (A.X * A.Y) > (B.X * B.Y);
+        });
+
+    // Populate resolution display strings
+    ResolutionOptions.Empty();
+    for (const FIntPoint& Resolution : AvailableResolutions)
+    {
+        ResolutionOptions.Add(FString::Printf(TEXT("%d x %d"), Resolution.X, Resolution.Y));
     }
 
-    CacheCurrentSettings();
-    BroadcastDataChanged();
+    // Window mode options
+    WindowModeOptions.Empty();
+    WindowModeOptions.Add(TEXT("Fullscreen"));
+    WindowModeOptions.Add(TEXT("Windowed"));
+    WindowModeOptions.Add(TEXT("Windowed Fullscreen"));
+
+    // Quality options
+    QualityOptions.Empty();
+    QualityOptions.Add(TEXT("Low"));
+    QualityOptions.Add(TEXT("Medium"));
+    QualityOptions.Add(TEXT("High"));
+    QualityOptions.Add(TEXT("Ultra"));
+
+    // Anti-aliasing options
+    AntiAliasingOptions.Empty();
+    AntiAliasingOptions.Add(TEXT("Off"));
+    AntiAliasingOptions.Add(TEXT("FXAA"));
+    AntiAliasingOptions.Add(TEXT("TAA"));
+    AntiAliasingOptions.Add(TEXT("MSAA"));
+}
+
+int32 US_UI_VM_Settings::GetResolutionIndex(const FIntPoint& Resolution) const
+{
+    for (int32 i = 0; i < AvailableResolutions.Num(); ++i)
+    {
+        if (AvailableResolutions[i] == Resolution)
+        {
+            return i;
+        }
+    }
+    return 0; // Default to first resolution if not found
 }
 
 void US_UI_VM_Settings::CacheCurrentSettings()
@@ -114,6 +213,10 @@ void US_UI_VM_Settings::CacheCurrentSettings()
     // Gameplay
     CachedSettings.FieldOfView = FieldOfView;
     CachedSettings.bShowFPSCounter = bShowFPSCounter;
+
+    // Player
+    CachedSettings.PlayerName = PlayerName;
+    CachedSettings.SelectedCharacterModel = SelectedCharacterModel;
 }
 
 void US_UI_VM_Settings::RestoreFromCache()
@@ -139,4 +242,8 @@ void US_UI_VM_Settings::RestoreFromCache()
     // Gameplay
     FieldOfView = CachedSettings.FieldOfView;
     bShowFPSCounter = CachedSettings.bShowFPSCounter;
+
+    // Player
+    PlayerName = CachedSettings.PlayerName;
+    SelectedCharacterModel = CachedSettings.SelectedCharacterModel;
 }

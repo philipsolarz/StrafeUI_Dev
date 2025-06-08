@@ -101,6 +101,10 @@ public:
     /** The widget class for the Gameplay settings tab. */
     UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Settings Tabs")
     TSoftClassPtr<US_UI_SettingsTabBase> GameplaySettingsTabClass;
+
+    /** The widget class for the Player settings tab. */
+    UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Settings Tabs")
+    TSoftClassPtr<US_UI_SettingsTabBase> PlayerSettingsTabClass;
     //~ End Settings Tab Classes
 
     //~ Begin Input Settings

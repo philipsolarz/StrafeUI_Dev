@@ -9,3 +9,4 @@ void US_UI_ViewModelBase::BroadcastDataChanged()
 		OnDataChanged.Broadcast();
 	}
 }
+

@@ -11,7 +11,9 @@
 
 US_UI_ViewModelBase* US_UI_SettingsWidget::CreateViewModel()
 {
-    return NewObject<US_UI_VM_Settings>(this);
+    US_UI_VM_Settings* VM = NewObject<US_UI_VM_Settings>(this);
+    VM->Initialize();
+    return VM;
 }
 
 void US_UI_SettingsWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
@@ -132,6 +134,15 @@ void US_UI_SettingsWidget::InitializeSettingsTabs()
         GameplayTab.ContentWidgetClass = Settings->GameplaySettingsTabClass;
         GameplayTab.TabTag = "Gameplay";
         TabDefs.Add(GameplayTab);
+    }
+
+    if (Settings->PlayerSettingsTabClass.IsValid())
+    {
+        FTabDefinition PlayerTab;
+        PlayerTab.TabName = FText::FromString(TEXT("Player"));
+        PlayerTab.ContentWidgetClass = Settings->PlayerSettingsTabClass;
+        PlayerTab.TabTag = "Player";
+        TabDefs.Add(PlayerTab);
     }
 
     if (TabDefs.Num() == 0)
