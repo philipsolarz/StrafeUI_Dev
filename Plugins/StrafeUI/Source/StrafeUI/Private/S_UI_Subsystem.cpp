@@ -9,6 +9,7 @@
 #include "S_UI_InputController.h"
 #include "S_UI_ModalStack.h"
 #include "S_UI_PlayerController.h"
+#include "S_UI_OnlineSessionManager.h"
 #include "UI/S_UI_RootWidget.h"
 #include "UI/S_UI_MainMenuWidget.h"
 
@@ -19,17 +20,29 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
     // Create the manager instances.
     AssetManager = NewObject<US_UI_AssetManager>(this);
     Navigator = NewObject<US_UI_Navigator>(this);
+    SessionManager = NewObject<US_UI_OnlineSessionManager>(this);
+
+    // Initialize the session manager
+    SessionManager->Initialize();
 
     UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initialized"));
 }
 
 void US_UI_Subsystem::Deinitialize()
 {
+    // Clean up the session manager first
+    if (SessionManager)
+    {
+        SessionManager->Shutdown();
+        SessionManager = nullptr;
+    }
+
     if (UIRootWidget)
     {
         UIRootWidget->RemoveFromParent();
         UIRootWidget = nullptr;
     }
+
     UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Deinitialized"));
     Super::Deinitialize();
 }
@@ -75,8 +88,6 @@ void US_UI_Subsystem::FinalizeUIInitialization()
         if (TSubclassOf<US_UI_ModalStack> LoadedModalStackClass = TSubclassOf<US_UI_ModalStack>(Settings->ModalStackClass.Get()))
         {
             ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
-
-            // <<< CORRECTED: Pass the TSoftClassPtr from settings directly.
             ModalStack->Initialize(this, Settings->ModalWidgetClass);
         }
     }

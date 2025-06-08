@@ -3,12 +3,14 @@
 #include "ViewModel/S_UI_VM_ServerBrowser.h"
 #include "S_UI_Subsystem.h"
 #include "OnlineSubsystem.h"
+
 #include "OnlineSessionSettings.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/PlayerController.h"
 #include "Data/S_UI_ScreenTypes.h"
+#include "Online/OnlineSessionNames.h"
 
 // Match the custom session settings keys from CreateGame
 #define SETTING_GAMEMODE FName(TEXT("GAMEMODE"))
