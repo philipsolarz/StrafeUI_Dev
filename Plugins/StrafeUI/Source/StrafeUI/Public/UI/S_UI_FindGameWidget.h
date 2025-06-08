@@ -9,6 +9,8 @@
 
 class UCommonButtonBase;
 class UListView;
+class US_UI_CollapsibleBox;
+class US_UI_ServerFilterWidget;
 
 /**
  * @class S_UI_FindGameWidget
@@ -34,8 +36,14 @@ private:
     UFUNCTION()
     void OnServerListUpdated();
 
+    /** Updates the enabled state of buttons based on current selection */
+    void UpdateButtonStates();
+
+    /** Called when filter values change */
+    UFUNCTION()
+    void OnFiltersChanged();
+
     //~ Button Click Handlers
-    // The declaration for HandleRefreshClicked() is removed from here.
     UFUNCTION()
     void HandleJoinClicked();
 
@@ -58,4 +66,10 @@ private:
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UCommonButtonBase> Btn_Back;
+
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<US_UI_CollapsibleBox> Col_Filters;
+
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<US_UI_ServerFilterWidget> ServerFilterWidget;
 };

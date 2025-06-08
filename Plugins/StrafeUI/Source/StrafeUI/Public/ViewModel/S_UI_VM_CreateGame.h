@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "ViewModel/S_UI_ViewModelBase.h"
+#include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "S_UI_VM_CreateGame.generated.h"
 
 class US_UI_Settings;
@@ -31,11 +33,18 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Create Game")
 	TArray<FString> MapDisplayNames;
 
+	// Basic Game Settings
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
 	FString GameName = "My Awesome Game";
 
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
+	FString ServerDescription = "Welcome to my server!";
+
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
 	bool bIsPrivate = false;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
+	bool bIsLANMatch = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
 	int32 MaxPlayers = 8;
@@ -49,7 +58,35 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
 	FString SelectedGameModeName;
 
+	// Advanced Game Settings
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game|Advanced")
+	bool bAllowFriendlyFire = false;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game|Advanced")
+	bool bAllowSpectators = true;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game|Advanced")
+	int32 TimeLimit = 20; // in minutes
+
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game|Advanced")
+	int32 ScoreLimit = 50;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Create Game|Advanced")
+	float RespawnTime = 5.0f;
+
 private:
+	/** Callback for when session creation completes */
+	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+
+	/** Stores the delegate handle for cleanup */
+	FDelegateHandle CreateSessionCompleteDelegateHandle;
+
 	UPROPERTY()
 	TWeakObjectPtr<const US_UI_Settings> UISettings;
+
+	/** Cached game mode class for session creation */
+	UClass* CachedGameModeClass = nullptr;
+
+	/** Cached map asset path for session creation */
+	FString CachedMapAssetPath;
 };

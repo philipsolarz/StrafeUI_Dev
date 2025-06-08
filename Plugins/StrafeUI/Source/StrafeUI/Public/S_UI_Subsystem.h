@@ -11,6 +11,7 @@ class US_UI_InputController;
 class US_UI_ModalStack;
 class US_UI_RootWidget;
 class AS_UI_PlayerController;
+class US_UI_OnlineSessionManager;
 
 /**
  * The central orchestrator for the StrafeUI plugin.
@@ -43,6 +44,10 @@ public:
     UFUNCTION(BlueprintPure, Category = "UI Subsystem")
     US_UI_AssetManager* GetAssetManager() const { return AssetManager; }
 
+    /** Gets the online session manager. */
+    UFUNCTION(BlueprintPure, Category = "UI Subsystem")
+    US_UI_OnlineSessionManager* GetSessionManager() const { return SessionManager; }
+
 private:
     /** Finalizes UI setup after all assets have been loaded. */
     void FinalizeUIInitialization();
@@ -62,6 +67,10 @@ private:
     /** Manager for the modal dialog queue. */
     UPROPERTY()
     TObjectPtr<US_UI_ModalStack> ModalStack;
+
+    /** Manager for online sessions. */
+    UPROPERTY()
+    TObjectPtr<US_UI_OnlineSessionManager> SessionManager;
 
     /** The root widget of the UI. */
     UPROPERTY()
