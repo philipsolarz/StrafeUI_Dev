@@ -32,7 +32,9 @@ public class StrafeUI : ModuleRules
 				"CommonUI",
 				"EnhancedInput",
 				"DeveloperSettings",
-				"AssetRegistry"
+				"AssetRegistry",
+                "OnlineSubsystem",
+                "OnlineSubsystemUtils"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
