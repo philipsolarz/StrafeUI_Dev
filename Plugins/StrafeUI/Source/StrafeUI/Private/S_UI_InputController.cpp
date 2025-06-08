@@ -6,6 +6,7 @@
 #include "Engine/StreamableManager.h"
 #include "EnhancedInputComponent.h"
 #include "S_UI_Subsystem.h"
+#include "S_UI_Navigator.h"
 #include "InputAction.h" // Include for UInputAction
 #include "InputActionValue.h"
 #include "UI/S_UI_RootWidget.h"
@@ -96,9 +97,9 @@ void US_UI_InputController::OnBack(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Verbose, TEXT("InputController: Back triggered."));
 
-	if (UISubsystem)
+	if (UISubsystem && UISubsystem->GetNavigator())
 	{
-		// Use the new function to pop from the content stack
-		UISubsystem->PopContentScreen();
+		// <<< Corrected call to use the Navigator
+		UISubsystem->GetNavigator()->PopContentScreen();
 	}
 }

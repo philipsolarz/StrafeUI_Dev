@@ -5,6 +5,7 @@
 #include "UI/S_UI_SettingsTabBase.h"
 #include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
+#include "S_UI_Navigator.h"
 #include "S_UI_Settings.h"
 #include "ViewModel/S_UI_VM_Settings.h"
 
@@ -228,12 +229,14 @@ void US_UI_SettingsWidget::HandleBackClicked()
                     {
                         HandleApplyClicked();
                     }
-                    UISubsystem->PopContentScreen();
+                    // <<< Corrected call to use the Navigator
+                    UISubsystem->GetNavigator()->PopContentScreen();
                 }));
         }
         else
         {
-            UISubsystem->PopContentScreen();
+            // <<< Corrected call to use the Navigator
+            UISubsystem->GetNavigator()->PopContentScreen();
         }
     }
 }
