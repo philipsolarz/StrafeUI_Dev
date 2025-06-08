@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CommonActivatableWidget.h"
+#include "ViewModel/S_UI_ViewModelBase.h"
 #include "S_UI_BaseScreenWidget.generated.h"
 
 class US_UI_Subsystem;
@@ -15,7 +16,7 @@ struct FInputActionValue;
  * Provides common functionality, such as easy access to the UI Subsystem.
  */
 UCLASS(Abstract)
-class STRAFEUI_API US_UI_BaseScreenWidget : public UCommonActivatableWidget
+class STRAFEUI_API US_UI_BaseScreenWidget : public UCommonActivatableWidget, public IViewModelProvider
 {
     GENERATED_BODY()
 
@@ -30,6 +31,14 @@ public:
      * @brief Handles the accept/confirm input action. Override in child classes.
      */
     virtual void HandleAccept() {}
+
+    /**
+     * When implemented by a widget, this function is responsible for creating and returning
+     * the specific ViewModel instance that the widget will use.
+     * @return A pointer to the newly created ViewModel.
+     */
+    virtual US_UI_ViewModelBase* CreateViewModel() override { return nullptr; };
+
 
 protected:
     /**

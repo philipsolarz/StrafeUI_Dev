@@ -283,23 +283,31 @@ void US_UI_Subsystem::SwitchContentScreen(const E_UIScreenId ScreenId)
 		UCommonActivatableWidget* PushedWidget = UIRootWidget->GetContentStack()->AddWidget<UCommonActivatableWidget>(*FoundWidgetClass);
 		UE_LOG(LogTemp, Verbose, TEXT("Switched content screen to: %s"), *UEnum::GetValueAsString(ScreenId));
 
-		// --- ViewModel Injection ---
-		if (US_UI_FindGameWidget* FindGameWidget = Cast<US_UI_FindGameWidget>(PushedWidget))
+		// --- ViewModel Injection using the Factory Pattern ---
+		if (IViewModelProvider* ViewModelProvider = Cast<IViewModelProvider>(PushedWidget))
 		{
-			US_UI_VM_ServerBrowser* ServerBrowserVM = NewObject<US_UI_VM_ServerBrowser>(this);
-			FindGameWidget->SetViewModel(ServerBrowserVM);
-		}
-		else if (US_UI_SettingsWidget* SettingsWidget = Cast<US_UI_SettingsWidget>(PushedWidget))
-		{
-			US_UI_VM_Settings* SettingsVM = NewObject<US_UI_VM_Settings>(this);
-			SettingsWidget->SetViewModel(SettingsVM);
-		}
-		else if (US_UI_CreateGameWidget* CreateGameWidget = Cast<US_UI_CreateGameWidget>(PushedWidget))
-		{
-			US_UI_VM_CreateGame* CreateGameVM = NewObject<US_UI_VM_CreateGame>(this);
-			// Pass the settings object to the new initializer
-			CreateGameVM->Initialize(GetDefault<US_UI_Settings>());
-			CreateGameWidget->SetViewModel(CreateGameVM);
+			US_UI_ViewModelBase* ViewModel = ViewModelProvider->CreateViewModel();
+
+			// The widget is responsible for casting and setting its own viewmodel.
+			// We need a way to pass the created viewmodel to the widget.
+			// Let's assume a SetViewModel function on the base widget for now.
+			if (US_UI_BaseScreenWidget* BaseScreenWidget = Cast<US_UI_BaseScreenWidget>(PushedWidget))
+			{
+				// This is a bit of a hack, we need a common SetViewModel on the base class
+				// or another interface. For now, we'll cast to each type.
+				if (US_UI_FindGameWidget* FindGameWidget = Cast<US_UI_FindGameWidget>(BaseScreenWidget))
+				{
+					FindGameWidget->SetViewModel(ViewModel);
+				}
+				else if (US_UI_SettingsWidget* SettingsWidget = Cast<US_UI_SettingsWidget>(BaseScreenWidget))
+				{
+					SettingsWidget->SetViewModel(ViewModel);
+				}
+				else if (US_UI_CreateGameWidget* CreateGameWidget = Cast<US_UI_CreateGameWidget>(BaseScreenWidget))
+				{
+					CreateGameWidget->SetViewModel(ViewModel);
+				}
+			}
 		}
 	}
 	else

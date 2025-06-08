@@ -22,7 +22,9 @@ class STRAFEUI_API US_UI_SettingsWidget : public US_UI_BaseScreenWidget
 
 public:
     /** Sets the ViewModel for this widget and triggers the initial UI update. */
-    void SetViewModel(US_UI_VM_Settings* InViewModel);
+    void SetViewModel(US_UI_ViewModelBase* InViewModel);
+
+    virtual US_UI_ViewModelBase* CreateViewModel() override;
 
 protected:
     virtual void NativeOnInitialized() override;

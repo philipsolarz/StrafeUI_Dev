@@ -20,7 +20,9 @@ class STRAFEUI_API US_UI_CreateGameWidget : public US_UI_BaseScreenWidget
     GENERATED_BODY()
 
 public:
-    void SetViewModel(US_UI_VM_CreateGame* InViewModel);
+    void SetViewModel(US_UI_ViewModelBase* InViewModel);
+
+    virtual US_UI_ViewModelBase* CreateViewModel() override;
 
 protected:
     virtual void NativeOnInitialized() override;

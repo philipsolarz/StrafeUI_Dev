@@ -6,20 +6,29 @@
 #include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
 #include "S_UI_Settings.h"
+#include "ViewModel/S_UI_VM_Settings.h"
 
-void US_UI_SettingsWidget::SetViewModel(US_UI_VM_Settings* InViewModel)
+US_UI_ViewModelBase* US_UI_SettingsWidget::CreateViewModel()
 {
-    if (InViewModel)
-    {
-        ViewModel = InViewModel;
+    return NewObject<US_UI_VM_Settings>(this);
+}
 
-        // Defer tab initialization to ensure the widget is fully constructed
-        if (GetWorld())
+void US_UI_SettingsWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
+{
+    if (US_UI_VM_Settings* InSettingsViewModel = Cast<US_UI_VM_Settings>(InViewModel))
+    {
+        if (InSettingsViewModel)
         {
-            GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
-                {
-                    InitializeSettingsTabs();
-                });
+            ViewModel = InSettingsViewModel;
+
+            // Defer tab initialization to ensure the widget is fully constructed
+            if (GetWorld())
+            {
+                GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+                    {
+                        InitializeSettingsTabs();
+                    });
+            }
         }
     }
 }
