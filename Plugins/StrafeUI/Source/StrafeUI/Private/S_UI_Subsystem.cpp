@@ -8,6 +8,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 #include "EnhancedInputComponent.h"
+#include "CommonButtonBase.h"
 
 // Required project headers
 #include "Data/S_UI_ScreenDataAsset.h"
@@ -19,6 +20,7 @@
 #include "UI/S_UI_CreateGameWidget.h"
 #include "UI/S_UI_FindGameWidget.h"
 #include "UI/S_UI_SettingsWidget.h"
+#include "UI/S_UI_SettingsTabBase.h"
 #include "ViewModel/S_UI_VM_CreateGame.h"
 #include "ViewModel/S_UI_VM_ServerBrowser.h"
 #include "ViewModel/S_UI_VM_Settings.h"
@@ -46,6 +48,39 @@ void US_UI_Subsystem::EnsureAssetsLoaded()
 		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: Cannot find StrafeUISettings!"));
 		return;
 	}
+
+	// --- FIX STARTS HERE ---
+	// Preemptively load all critical UI classes from Developer Settings.
+	// This resolves the soft pointers at a controlled time, preventing race conditions
+	// that can occur during editor startup or gameplay initialization. By ensuring these
+	// assets are in memory before any UI is created, we make the system more robust.
+
+	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Pre-loading UI assets from settings..."));
+
+	// Core classes required by other systems (like the TabControl)
+	if (Settings->TabButtonClass.IsPending())
+	{
+		Settings->TabButtonClass.LoadSynchronous();
+	}
+
+	// Settings Tab classes (these were the problematic ones)
+	if (Settings->AudioSettingsTabClass.IsPending())
+	{
+		Settings->AudioSettingsTabClass.LoadSynchronous();
+	}
+	if (Settings->VideoSettingsTabClass.IsPending())
+	{
+		Settings->VideoSettingsTabClass.LoadSynchronous();
+	}
+	if (Settings->ControlsSettingsTabClass.IsPending())
+	{
+		Settings->ControlsSettingsTabClass.LoadSynchronous();
+	}
+	if (Settings->GameplaySettingsTabClass.IsPending())
+	{
+		Settings->GameplaySettingsTabClass.LoadSynchronous();
+	}
+	// --- FIX ENDS HERE ---
 
 	// Initialize the modal stack if not already created
 	if (!ModalStack)
