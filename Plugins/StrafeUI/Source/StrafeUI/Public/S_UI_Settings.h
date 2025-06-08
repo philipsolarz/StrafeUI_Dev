@@ -116,4 +116,10 @@ public:
     UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Input")
     TSoftObjectPtr<UInputAction> BackAction;
     //~ End Input Settings
+
+    //~ UDeveloperSettings
+#if WITH_EDITOR
+    virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+    virtual void PostInitProperties() override;
 };
