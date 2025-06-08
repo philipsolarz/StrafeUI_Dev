@@ -13,8 +13,14 @@ void US_UI_SettingsWidget::SetViewModel(US_UI_VM_Settings* InViewModel)
     {
         ViewModel = InViewModel;
 
-        // Initialize tabs
-        InitializeSettingsTabs();
+        // Defer tab initialization to ensure the widget is fully constructed
+        if (GetWorld())
+        {
+            GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+                {
+                    InitializeSettingsTabs();
+                });
+        }
     }
 }
 
@@ -41,6 +47,17 @@ void US_UI_SettingsWidget::NativeOnInitialized()
     }
 }
 
+void US_UI_SettingsWidget::NativeConstruct()
+{
+    Super::NativeConstruct();
+
+    // If we already have a view model but tabs haven't been initialized, do it now
+    if (ViewModel.IsValid() && TabControl && TabControl->GetContentSwitcher()->GetNumWidgets() == 0)
+    {
+        InitializeSettingsTabs();
+    }
+}
+
 void US_UI_SettingsWidget::NativeDestruct()
 {
     if (TabControl)
@@ -55,6 +72,7 @@ void US_UI_SettingsWidget::InitializeSettingsTabs()
 {
     if (!TabControl || !ViewModel.IsValid())
     {
+        UE_LOG(LogTemp, Warning, TEXT("SettingsWidget: Cannot initialize tabs - TabControl or ViewModel is null"));
         return;
     }
 
@@ -62,35 +80,55 @@ void US_UI_SettingsWidget::InitializeSettingsTabs()
     const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
     if (!Settings)
     {
+        UE_LOG(LogTemp, Error, TEXT("SettingsWidget: No settings found"));
         return;
     }
 
-    // Define the tabs - in a real implementation, this could come from settings
+    // Define the tabs
     TArray<FTabDefinition> TabDefs;
 
-    FTabDefinition AudioTab;
-    AudioTab.TabName = FText::FromString(TEXT("Audio"));
-    AudioTab.ContentWidgetClass = Settings->AudioSettingsTabClass;
-    AudioTab.TabTag = "Audio";
-    TabDefs.Add(AudioTab);
+    // Only add tabs that have valid widget classes
+    if (Settings->AudioSettingsTabClass.IsValid())
+    {
+        FTabDefinition AudioTab;
+        AudioTab.TabName = FText::FromString(TEXT("Audio"));
+        AudioTab.ContentWidgetClass = Settings->AudioSettingsTabClass;
+        AudioTab.TabTag = "Audio";
+        TabDefs.Add(AudioTab);
+    }
 
-    FTabDefinition VideoTab;
-    VideoTab.TabName = FText::FromString(TEXT("Video"));
-    VideoTab.ContentWidgetClass = Settings->VideoSettingsTabClass;
-    VideoTab.TabTag = "Video";
-    TabDefs.Add(VideoTab);
+    if (Settings->VideoSettingsTabClass.IsValid())
+    {
+        FTabDefinition VideoTab;
+        VideoTab.TabName = FText::FromString(TEXT("Video"));
+        VideoTab.ContentWidgetClass = Settings->VideoSettingsTabClass;
+        VideoTab.TabTag = "Video";
+        TabDefs.Add(VideoTab);
+    }
 
-    FTabDefinition ControlsTab;
-    ControlsTab.TabName = FText::FromString(TEXT("Controls"));
-    ControlsTab.ContentWidgetClass = Settings->ControlsSettingsTabClass;
-    ControlsTab.TabTag = "Controls";
-    TabDefs.Add(ControlsTab);
+    if (Settings->ControlsSettingsTabClass.IsValid())
+    {
+        FTabDefinition ControlsTab;
+        ControlsTab.TabName = FText::FromString(TEXT("Controls"));
+        ControlsTab.ContentWidgetClass = Settings->ControlsSettingsTabClass;
+        ControlsTab.TabTag = "Controls";
+        TabDefs.Add(ControlsTab);
+    }
 
-    FTabDefinition GameplayTab;
-    GameplayTab.TabName = FText::FromString(TEXT("Gameplay"));
-    GameplayTab.ContentWidgetClass = Settings->GameplaySettingsTabClass;
-    GameplayTab.TabTag = "Gameplay";
-    TabDefs.Add(GameplayTab);
+    if (Settings->GameplaySettingsTabClass.IsValid())
+    {
+        FTabDefinition GameplayTab;
+        GameplayTab.TabName = FText::FromString(TEXT("Gameplay"));
+        GameplayTab.ContentWidgetClass = Settings->GameplaySettingsTabClass;
+        GameplayTab.TabTag = "Gameplay";
+        TabDefs.Add(GameplayTab);
+    }
+
+    if (TabDefs.Num() == 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("SettingsWidget: No valid tab definitions found"));
+        return;
+    }
 
     // Initialize the tab control
     TabControl->InitializeTabs(TabDefs, 0);
@@ -108,6 +146,8 @@ void US_UI_SettingsWidget::InitializeSettingsTabs()
             }
         }
     }
+
+    UE_LOG(LogTemp, Warning, TEXT("SettingsWidget: Initialized %d tabs"), SettingsTabs.Num());
 }
 
 void US_UI_SettingsWidget::OnSettingsTabSelected(int32 TabIndex, FName TabTag)

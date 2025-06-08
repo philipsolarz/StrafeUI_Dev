@@ -94,6 +94,7 @@ public:
 
 protected:
     virtual void NativeOnInitialized() override;
+    virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
 
     /** The tab list widget that displays the tab buttons. */
@@ -108,6 +109,10 @@ private:
     /** Called when a tab is selected in the tab list. */
     UFUNCTION()
     void HandleTabSelected(FName TabId);
+
+    /** Called when a tab button is created. */
+    UFUNCTION()
+    void HandleTabButtonCreation(FName TabId, UCommonButtonBase* TabButton);
 
     /** Cached tab definitions. */
     UPROPERTY()
