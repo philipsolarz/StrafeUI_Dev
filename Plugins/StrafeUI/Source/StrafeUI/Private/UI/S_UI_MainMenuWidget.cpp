@@ -3,6 +3,7 @@
 #include "UI/S_UI_MainMenuWidget.h"
 #include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
+#include "S_UI_Navigator.h"
 #include "Data/S_UI_ScreenTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -33,7 +34,7 @@ void US_UI_MainMenuWidget::HandleCreateGameClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->SwitchContentScreen(E_UIScreenId::CreateGame);
+        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::CreateGame);
     }
 }
 
@@ -41,7 +42,7 @@ void US_UI_MainMenuWidget::HandleFindGameClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->SwitchContentScreen(E_UIScreenId::FindGame);
+        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::FindGame);
     }
 }
 
@@ -49,7 +50,7 @@ void US_UI_MainMenuWidget::HandleSettingsClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->SwitchContentScreen(E_UIScreenId::Settings);
+        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::Settings);
     }
 }
 

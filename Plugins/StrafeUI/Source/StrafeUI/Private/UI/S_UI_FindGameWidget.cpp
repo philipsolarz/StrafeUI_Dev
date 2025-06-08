@@ -4,6 +4,7 @@
 #include "Components/ListView.h"
 #include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
+#include "S_UI_Navigator.h" // <<< Added include
 // No need to include the VM header here as it's already in the widget's .h file
 
 US_UI_ViewModelBase* US_UI_FindGameWidget::CreateViewModel()
@@ -81,6 +82,7 @@ void US_UI_FindGameWidget::HandleBackClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->PopContentScreen();
+        // <<< Corrected call to use the Navigator
+        UISubsystem->GetNavigator()->PopContentScreen();
     }
 }
