@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "CommonUserWidget.h"
 #include "CommonTabListWidgetBase.h"
+#include "Engine/StreamableManager.h"
 #include "CommonActivatableWidgetSwitcher.h"
 #include "S_UI_TabControl.generated.h"
 
@@ -123,4 +124,7 @@ private:
 
     /** Counter for generating unique tab IDs. */
     int32 TabIdCounter = 0;
+
+    /** Handle for the asynchronous loading of the tab button class. */
+    TSharedPtr<FStreamableHandle> TabButtonClassHandle;
 };

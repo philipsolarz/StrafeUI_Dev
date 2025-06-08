@@ -4,6 +4,7 @@
 #include "S_UI_Settings.h" // Include the new settings header
 
 // Required engine headers
+#include "Engine/StreamableManager.h"
 #include "Engine/AssetManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
@@ -35,115 +36,6 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Initialized"));
 }
 
-void US_UI_Subsystem::EnsureAssetsLoaded()
-{
-	if (bAssetsLoaded)
-	{
-		return;
-	}
-
-	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
-	if (!Settings)
-	{
-		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: Cannot find StrafeUISettings!"));
-		return;
-	}
-
-	// --- FIX STARTS HERE ---
-	// Preemptively load all critical UI classes from Developer Settings.
-	// This resolves the soft pointers at a controlled time, preventing race conditions
-	// that can occur during editor startup or gameplay initialization. By ensuring these
-	// assets are in memory before any UI is created, we make the system more robust.
-
-	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Pre-loading UI assets from settings..."));
-
-	// Core classes required by other systems (like the TabControl)
-	if (Settings->TabButtonClass.IsPending())
-	{
-		Settings->TabButtonClass.LoadSynchronous();
-	}
-
-	// Settings Tab classes (these were the problematic ones)
-	if (Settings->AudioSettingsTabClass.IsPending())
-	{
-		Settings->AudioSettingsTabClass.LoadSynchronous();
-	}
-	if (Settings->VideoSettingsTabClass.IsPending())
-	{
-		Settings->VideoSettingsTabClass.LoadSynchronous();
-	}
-	if (Settings->ControlsSettingsTabClass.IsPending())
-	{
-		Settings->ControlsSettingsTabClass.LoadSynchronous();
-	}
-	if (Settings->GameplaySettingsTabClass.IsPending())
-	{
-		Settings->GameplaySettingsTabClass.LoadSynchronous();
-	}
-	// --- FIX ENDS HERE ---
-
-	// Initialize the modal stack if not already created
-	if (!ModalStack)
-	{
-		// Force load the modal stack class
-		UClass* LoadedModalStackClass = Settings->ModalStackClass.LoadSynchronous();
-		if (LoadedModalStackClass)
-		{
-			ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
-
-			// Force load the modal widget class before initializing
-			UClass* LoadedModalWidgetClass = Settings->ModalWidgetClass.LoadSynchronous();
-			if (LoadedModalWidgetClass)
-			{
-				ModalStack->Initialize(this, TSoftClassPtr<US_UI_ModalWidget>(LoadedModalWidgetClass));
-				UE_LOG(LogTemp, Log, TEXT("Modal stack initialized with widget class: %s"),
-					*LoadedModalWidgetClass->GetName());
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("Failed to load ModalWidgetClass!"));
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to load ModalStackClass!"));
-		}
-	}
-
-	// Force load the screen data asset
-	UObject* LoadedAsset = Settings->ScreenMapDataAsset.LoadSynchronous();
-	if (!LoadedAsset)
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to load ScreenMapDataAsset!"));
-		return;
-	}
-
-	if (const US_UI_ScreenDataAsset* ScreenData = Cast<US_UI_ScreenDataAsset>(LoadedAsset))
-	{
-		for (const F_UIScreenDefinition& Definition : ScreenData->ScreenDefinitions)
-		{
-			if (Definition.WidgetClass.IsValid() || Definition.WidgetClass.IsPending())
-			{
-				UClass* LoadedClass = Definition.WidgetClass.LoadSynchronous();
-				if (LoadedClass)
-				{
-					ScreenWidgetClassCache.Add(Definition.ScreenId, LoadedClass);
-					UE_LOG(LogTemp, Log, TEXT("Loaded screen %s -> %s"),
-						*UEnum::GetValueAsString(Definition.ScreenId),
-						*LoadedClass->GetName());
-				}
-				else
-				{
-					UE_LOG(LogTemp, Warning, TEXT("Failed to load widget class for %s"),
-						*UEnum::GetValueAsString(Definition.ScreenId));
-				}
-			}
-		}
-	}
-
-	bAssetsLoaded = true;
-}
-
 void US_UI_Subsystem::InitializeUIForPlayer(AS_UI_PlayerController* PlayerController)
 {
 	if (!PlayerController || UIRootWidget)
@@ -151,52 +43,188 @@ void US_UI_Subsystem::InitializeUIForPlayer(AS_UI_PlayerController* PlayerContro
 		return;
 	}
 
-	// Ensure assets are loaded before creating UI
-	EnsureAssetsLoaded();
+	// Store the player controller for use in the async callback.
+	InitializingPlayer = PlayerController;
+
+	// Start the async loading process. The rest of the UI initialization
+	// will be handled in the OnAllAssetsLoaded callback.
+	StartAssetsLoading();
+}
+
+void US_UI_Subsystem::StartAssetsLoading()
+{
+	// Ensure we only start loading once.
+	if (bAssetsLoaded || bAreAssetsLoading)
+	{
+		return;
+	}
+	bAreAssetsLoading = true;
+
+	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Starting asynchronous asset loading..."));
 
 	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
 	if (!Settings)
 	{
+		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: Cannot find StrafeUISettings!"));
+		bAreAssetsLoading = false;
 		return;
 	}
 
-	// 1. Initialize the Input Controller now that we have a valid Player Controller
-	if (TSubclassOf<US_UI_InputController> LoadedInputControllerClass = Settings->InputControllerClass.LoadSynchronous())
-	{
-		InputController = NewObject<US_UI_InputController>(this, LoadedInputControllerClass);
-		if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
+	// Phase 1: Load the Screen Map Data Asset first, as it defines what other assets we need.
+	FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+	FSoftObjectPath ScreenDataAssetPath = Settings->ScreenMapDataAsset.ToSoftObjectPath();
+
+	// Use a weak ptr to self for safety in the async callback.
+	TWeakObjectPtr<US_UI_Subsystem> WeakThis = this;
+
+	StreamableManager.RequestAsyncLoad(ScreenDataAssetPath,
+		[WeakThis, ScreenDataAssetPath]()
 		{
-			InputController->Initialize(this, EIC, Settings);
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnScreenMapDataAssetLoaded(ScreenDataAssetPath);
+			}
+		});
+}
+
+void US_UI_Subsystem::OnScreenMapDataAssetLoaded(FSoftObjectPath ScreenDataAssetPath)
+{
+	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Screen map data asset loaded."));
+
+	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
+	US_UI_ScreenDataAsset* ScreenData = Cast<US_UI_ScreenDataAsset>(Settings->ScreenMapDataAsset.Get());
+
+	if (!Settings || !ScreenData)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to load ScreenMapDataAsset or Settings after async load!"));
+		bAreAssetsLoading = false;
+		return;
+	}
+
+	// Phase 2: Assemble a list of ALL UI assets that need to be loaded.
+	TArray<FSoftObjectPath> AssetsToLoad;
+
+	// Core Classes
+	AssetsToLoad.Add(Settings->RootWidgetClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->MainMenuWidgetClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->ModalStackClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->ModalWidgetClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->InputControllerClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->TabButtonClass.ToSoftObjectPath());
+
+	// Settings Tab Classes
+	AssetsToLoad.Add(Settings->AudioSettingsTabClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->VideoSettingsTabClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->ControlsSettingsTabClass.ToSoftObjectPath());
+	AssetsToLoad.Add(Settings->GameplaySettingsTabClass.ToSoftObjectPath());
+
+	// Screen Widget Classes from the Data Asset
+	for (const F_UIScreenDefinition& Definition : ScreenData->ScreenDefinitions)
+	{
+		if (!Definition.WidgetClass.IsNull())
+		{
+			AssetsToLoad.Add(Definition.WidgetClass.ToSoftObjectPath());
 		}
 	}
 
-	// 2. Create and add the Root UI Widget to the viewport
-	if (const TSubclassOf<US_UI_RootWidget> RootClass = Settings->RootWidgetClass.LoadSynchronous())
-	{
-		UIRootWidget = CreateWidget<US_UI_RootWidget>(PlayerController, RootClass);
-		if (UIRootWidget)
+	// Now, request the async load for the entire batch.
+	FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+	TWeakObjectPtr<US_UI_Subsystem> WeakThis = this;
+	AllAssetsHandle = StreamableManager.RequestAsyncLoad(AssetsToLoad,
+		[WeakThis]()
 		{
-			UIRootWidget->AddToViewport();
-
-			// 3. Create and add the persistent Main Menu widget
-			if (const TSubclassOf<US_UI_MainMenuWidget> MainMenuClass = Settings->MainMenuWidgetClass.LoadSynchronous())
+			if (WeakThis.IsValid())
 			{
-				US_UI_MainMenuWidget* MainMenuWidget = CreateWidget<US_UI_MainMenuWidget>(PlayerController, MainMenuClass);
-				if (MainMenuWidget && UIRootWidget->GetMainMenuSlot())
+				WeakThis->OnAllAssetsLoaded();
+			}
+		});
+}
+
+void US_UI_Subsystem::OnAllAssetsLoaded()
+{
+	UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: All UI assets finished loading."));
+
+	const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
+	if (!Settings)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Settings are null in OnAllAssetsLoaded. Aborting UI setup."));
+		bAreAssetsLoading = false;
+		return;
+	}
+
+	// --- Populate Screen Widget Cache ---
+	const US_UI_ScreenDataAsset* ScreenData = Cast<US_UI_ScreenDataAsset>(Settings->ScreenMapDataAsset.Get());
+	if (ScreenData)
+	{
+		for (const F_UIScreenDefinition& Definition : ScreenData->ScreenDefinitions)
+		{
+			if (UClass* LoadedClass = Definition.WidgetClass.Get())
+			{
+				ScreenWidgetClassCache.Add(Definition.ScreenId, LoadedClass);
+				UE_LOG(LogTemp, Log, TEXT("Cached screen %s -> %s"), *UEnum::GetValueAsString(Definition.ScreenId), *LoadedClass->GetName());
+			}
+		}
+	}
+
+	// --- Initialize Modal Stack ---
+	if (!ModalStack)
+	{
+		if (UClass* LoadedModalStackClass = Settings->ModalStackClass.Get())
+		{
+			ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
+			if (UClass* LoadedModalWidgetClass = Settings->ModalWidgetClass.Get())
+			{
+				ModalStack->Initialize(this, TSoftClassPtr<US_UI_ModalWidget>(LoadedModalWidgetClass));
+			}
+		}
+	}
+
+	// --- Initialize UI for the Player (original logic from InitializeUIForPlayer) ---
+	if (InitializingPlayer.IsValid())
+	{
+		AS_UI_PlayerController* PlayerController = InitializingPlayer.Get();
+
+		// 1. Initialize the Input Controller
+		if (TSubclassOf<US_UI_InputController> LoadedInputControllerClass = TSubclassOf<US_UI_InputController>(Settings->InputControllerClass.Get()))
+		{
+			InputController = NewObject<US_UI_InputController>(this, LoadedInputControllerClass);
+			if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
+			{
+				InputController->Initialize(this, EIC, Settings);
+			}
+		}
+
+		// 2. Create and add the Root UI Widget
+		if (const TSubclassOf<US_UI_RootWidget> RootClass = TSubclassOf<US_UI_RootWidget>(Settings->RootWidgetClass.Get()))
+		{
+			UIRootWidget = CreateWidget<US_UI_RootWidget>(PlayerController, RootClass);
+			if (UIRootWidget)
+			{
+				UIRootWidget->AddToViewport();
+
+				// 3. Create and add the persistent Main Menu widget
+				if (const TSubclassOf<US_UI_MainMenuWidget> MainMenuClass = TSubclassOf<US_UI_MainMenuWidget>(Settings->MainMenuWidgetClass.Get()))
 				{
-					UIRootWidget->GetMainMenuSlot()->AddChild(MainMenuWidget);
-					UE_LOG(LogTemp, Log, TEXT("Main Menu widget added to root layout."));
+					US_UI_MainMenuWidget* MainMenuWidget = CreateWidget<US_UI_MainMenuWidget>(PlayerController, MainMenuClass);
+					if (MainMenuWidget && UIRootWidget->GetMainMenuSlot())
+					{
+						UIRootWidget->GetMainMenuSlot()->AddChild(MainMenuWidget);
+					}
 				}
 			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: MainMenuWidgetClass is not set in Project Settings -> Strafe UI!"));
-			}
 		}
 	}
-	else
+
+	// All assets are loaded and core UI is built.
+	bAssetsLoaded = true;
+	bAreAssetsLoading = false;
+
+	// If a screen switch was requested while we were loading, execute it now.
+	if (PendingScreenRequest != E_UIScreenId::None)
 	{
-		UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: RootWidgetClass is not set in Project Settings -> Strafe UI!"));
+		UE_LOG(LogTemp, Log, TEXT("Processing pending screen request: %s"), *UEnum::GetValueAsString(PendingScreenRequest));
+		SwitchContentScreen(PendingScreenRequest);
+		PendingScreenRequest = E_UIScreenId::None;
 	}
 }
 
@@ -214,6 +242,25 @@ void US_UI_Subsystem::Deinitialize()
 
 void US_UI_Subsystem::SwitchContentScreen(const E_UIScreenId ScreenId)
 {
+	// If assets are still loading, queue the request and handle it once loading is complete.
+	if (!bAssetsLoaded)
+	{
+		if (bAreAssetsLoading)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("SwitchContentScreen called for %s while assets are still loading. Request is queued."), *UEnum::GetValueAsString(ScreenId));
+			PendingScreenRequest = ScreenId;
+		}
+		else
+		{
+			// This case can happen if UI is requested before InitializeUIForPlayer is called.
+			// We should start the loading process.
+			UE_LOG(LogTemp, Warning, TEXT("SwitchContentScreen called before asset loading has started. Initiating now."));
+			PendingScreenRequest = ScreenId;
+			StartAssetsLoading();
+		}
+		return;
+	}
+
 	if (ScreenId == E_UIScreenId::None)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("SwitchContentScreen failed: Invalid ScreenId 'None' provided."));
@@ -275,8 +322,16 @@ void US_UI_Subsystem::PopContentScreen()
 
 void US_UI_Subsystem::RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback)
 {
-	// Ensure assets are loaded before trying to use modal stack
-	EnsureAssetsLoaded();
+	// This function might be called before assets are loaded.
+	// The modal stack itself is created during the async loading process.
+	if (!bAssetsLoaded)
+	{
+		// A robust solution would queue the modal request.
+		// For this refactor, we'll log a warning and drop it. In a real project, queuing would be better.
+		UE_LOG(LogTemp, Warning, TEXT("RequestModal called before core assets are loaded. The request will be ignored."));
+		if (!bAreAssetsLoading) { StartAssetsLoading(); } // Try to start loading if not already in progress.
+		return;
+	}
 
 	if (ModalStack)
 	{

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "Engine/StreamableManager.h" // For FStreamableHandle
 #include "S_UI_InputController.generated.h"
 
 // Forward declarations
@@ -47,4 +48,7 @@ private:
 	/** Cached pointer to the UI Subsystem. */
 	UPROPERTY()
 	TObjectPtr<US_UI_Subsystem> UISubsystem;
+
+	/** Handle to the asynchronous loading of input actions. */
+	TSharedPtr<FStreamableHandle> InputActionsHandle;
 };
