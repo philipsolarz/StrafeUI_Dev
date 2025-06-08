@@ -6,17 +6,25 @@
 #include "S_UI_Subsystem.h"
 // No need to include the VM header here as it's already in the widget's .h file
 
-void US_UI_FindGameWidget::SetViewModel(US_UI_VM_ServerBrowser* InViewModel)
+US_UI_ViewModelBase* US_UI_FindGameWidget::CreateViewModel()
 {
-    if (InViewModel)
+    return NewObject<US_UI_VM_ServerBrowser>(this);
+}
+
+void US_UI_FindGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
+{
+    if (US_UI_VM_ServerBrowser* InServerBrowserViewModel = Cast<US_UI_VM_ServerBrowser>(InViewModel))
     {
-        ViewModel = InViewModel;
+        if (InServerBrowserViewModel)
+        {
+            ViewModel = InServerBrowserViewModel;
 
-        // Bind to the ViewModel's OnDataChanged delegate to be notified of updates.
-        ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_FindGameWidget::OnServerListUpdated);
+            // Bind to the ViewModel's OnDataChanged delegate to be notified of updates.
+            ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_FindGameWidget::OnServerListUpdated);
 
-        // Trigger an initial data refresh.
-        OnServerListUpdated();
+            // Trigger an initial data refresh.
+            OnServerListUpdated();
+        }
     }
 }
 

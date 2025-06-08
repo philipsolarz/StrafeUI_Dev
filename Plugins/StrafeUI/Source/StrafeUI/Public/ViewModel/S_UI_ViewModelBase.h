@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/Interface.h"
 #include "UObject/Object.h"
 #include "S_UI_ViewModelBase.generated.h"
 
@@ -10,6 +11,26 @@
  * Delegate to broadcast when view model data changes.
  */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDataChanged);
+
+UINTERFACE(MinimalAPI, Blueprintable)
+class UViewModelProvider : public UInterface
+{
+	GENERATED_BODY()
+};
+
+class IViewModelProvider
+{
+	GENERATED_BODY()
+
+public:
+	/**
+	 * When implemented by a widget, this function is responsible for creating and returning
+	 * the specific ViewModel instance that the widget will use.
+	 * @return A pointer to the newly created ViewModel.
+	 */
+	virtual class US_UI_ViewModelBase* CreateViewModel() = 0;
+};
+
 
 /**
  * @class S_UI_ViewModelBase

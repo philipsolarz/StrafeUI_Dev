@@ -7,36 +7,48 @@
 #include "Components/CheckBox.h"
 #include "Components/Slider.h"
 #include "Components/Button.h"
+#include "S_UI_Settings.h"
 #include "UI/S_UI_CollapsibleBox.h"
 
-void US_UI_CreateGameWidget::SetViewModel(US_UI_VM_CreateGame* InViewModel)
+US_UI_ViewModelBase* US_UI_CreateGameWidget::CreateViewModel()
 {
-	if (InViewModel)
+	US_UI_VM_CreateGame* VM = NewObject<US_UI_VM_CreateGame>(this);
+	VM->Initialize(GetDefault<US_UI_Settings>());
+	return VM;
+}
+
+
+void US_UI_CreateGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
+{
+	if (US_UI_VM_CreateGame* InCreateGameViewModel = Cast<US_UI_VM_CreateGame>(InViewModel))
 	{
-		ViewModel = InViewModel;
-
-		// --- INITIAL SETUP ---
-		// The list of game modes is static, so we only need to populate it once.
-		if (ViewModel.IsValid() && Cmb_GameMode)
+		if (InCreateGameViewModel)
 		{
-			Cmb_GameMode->ClearOptions();
-			for (const FString& GameModeName : ViewModel->GameModeDisplayNames)
+			ViewModel = InCreateGameViewModel;
+
+			// --- INITIAL SETUP ---
+			// The list of game modes is static, so we only need to populate it once.
+			if (ViewModel.IsValid() && Cmb_GameMode)
 			{
-				Cmb_GameMode->AddOption(GameModeName);
+				Cmb_GameMode->ClearOptions();
+				for (const FString& GameModeName : ViewModel->GameModeDisplayNames)
+				{
+					Cmb_GameMode->AddOption(GameModeName);
+				}
+
+				// Set the initial selection in the ComboBox from the ViewModel's default.
+				if (ViewModel->GameModeDisplayNames.Num() > 0)
+				{
+					Cmb_GameMode->SetSelectedOption(ViewModel->SelectedGameModeName);
+				}
 			}
 
-			// Set the initial selection in the ComboBox from the ViewModel's default.
-			if (ViewModel->GameModeDisplayNames.Num() > 0)
-			{
-				Cmb_GameMode->SetSelectedOption(ViewModel->SelectedGameModeName);
-			}
+			// Now, bind to data changes for dynamic updates (like the map list).
+			ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_CreateGameWidget::OnViewModelDataChanged);
+
+			// Trigger the first update for the map list.
+			OnViewModelDataChanged();
 		}
-
-		// Now, bind to data changes for dynamic updates (like the map list).
-		ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_CreateGameWidget::OnViewModelDataChanged);
-
-		// Trigger the first update for the map list.
-		OnViewModelDataChanged();
 	}
 }
 
