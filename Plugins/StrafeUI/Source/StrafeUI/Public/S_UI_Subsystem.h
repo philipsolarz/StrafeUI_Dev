@@ -13,6 +13,7 @@ class US_UI_InputController;
 class US_UI_ModalStack;
 class US_UI_RootWidget;
 class AS_UI_PlayerController;
+struct FStreamableHandle;
 
 /**
  * @class US_UI_Subsystem
@@ -81,5 +82,35 @@ private:
 	TObjectPtr<US_UI_RootWidget> UIRootWidget;
 
 	bool bAssetsLoaded = false;
-	void EnsureAssetsLoaded();
+
+	/** Flag to prevent starting the load multiple times. */
+	bool bAreAssetsLoading = false;
+
+	/** If a screen switch is requested before assets are loaded, it's stored here. */
+	E_UIScreenId PendingScreenRequest = E_UIScreenId::None;
+
+	/** The player controller that initiated the UI creation, cached for use in async callbacks. */
+	UPROPERTY()
+	TWeakObjectPtr<AS_UI_PlayerController> InitializingPlayer;
+
+	/** Handle for managing the asynchronous loading of all core UI assets. */
+	TSharedPtr<FStreamableHandle> AllAssetsHandle;
+
+	/**
+	 * Starts the asynchronous asset loading process.
+	 */
+	void StartAssetsLoading();
+
+	/**
+	 * Callback function that is executed after the core DataAsset is loaded.
+	 * It then queues up the loading of all widgets defined in the DataAsset.
+	 * @param ScreenDataAssetPath The path of the loaded Screen Map Data Asset.
+	 */
+	void OnScreenMapDataAssetLoaded(FSoftObjectPath ScreenDataAssetPath);
+
+	/**
+	 * Final callback executed after all UI assets (screens, modals, etc.) are loaded.
+	 * This function finalizes the UI setup.
+	 */
+	void OnAllAssetsLoaded();
 };

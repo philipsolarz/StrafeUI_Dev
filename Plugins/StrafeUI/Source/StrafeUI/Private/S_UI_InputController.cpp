@@ -2,6 +2,8 @@
 
 #include "S_UI_InputController.h"
 #include "S_UI_Settings.h"
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
 #include "EnhancedInputComponent.h"
 #include "S_UI_Subsystem.h"
 #include "InputAction.h" // Include for UInputAction
@@ -18,18 +20,47 @@ void US_UI_InputController::Initialize(US_UI_Subsystem* InSubsystem, UEnhancedIn
 
 	UISubsystem = InSubsystem;
 
-	// Load the actions from the soft pointers before binding
-	if (UInputAction* NavigateAction = Settings->NavigateAction.LoadSynchronous())
+	// Asynchronously load the input actions.
+	// This prevents hitching the game thread while waiting for assets to load.
+	FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
+	TArray<FSoftObjectPath> ActionsToLoad;
+
+	if (!Settings->NavigateAction.IsNull())
 	{
-		InputComponent->BindAction(NavigateAction, ETriggerEvent::Triggered, this, &US_UI_InputController::OnNavigate);
+		ActionsToLoad.Add(Settings->NavigateAction.ToSoftObjectPath());
 	}
-	if (UInputAction* AcceptAction = Settings->AcceptAction.LoadSynchronous())
+	if (!Settings->AcceptAction.IsNull())
 	{
-		InputComponent->BindAction(AcceptAction, ETriggerEvent::Started, this, &US_UI_InputController::OnAccept);
+		ActionsToLoad.Add(Settings->AcceptAction.ToSoftObjectPath());
 	}
-	if (UInputAction* BackAction = Settings->BackAction.LoadSynchronous())
+	if (!Settings->BackAction.IsNull())
 	{
-		InputComponent->BindAction(BackAction, ETriggerEvent::Started, this, &US_UI_InputController::OnBack);
+		ActionsToLoad.Add(Settings->BackAction.ToSoftObjectPath());
+	}
+
+	if (ActionsToLoad.Num() > 0)
+	{
+		// Use a weak pointer to safely access the InputComponent in the callback.
+		// The InputController could be destroyed before loading finishes.
+		TWeakObjectPtr<UEnhancedInputComponent> WeakInputComponent = InputComponent;
+		TWeakObjectPtr<const US_UI_Settings> WeakSettings = Settings;
+
+		InputActionsHandle = StreamableManager.RequestAsyncLoad(ActionsToLoad,
+			[this, WeakInputComponent, WeakSettings]()
+			{
+				if (!WeakInputComponent.IsValid() || !WeakSettings.IsValid())
+				{
+					return; // Component or settings were destroyed before loading completed.
+				}
+
+				UEnhancedInputComponent* StrongInputComponent = WeakInputComponent.Get();
+				const US_UI_Settings* StrongSettings = WeakSettings.Get();
+
+				// Now that assets are loaded, we can bind them.
+				if (UInputAction* NavigateAction = StrongSettings->NavigateAction.Get()) { StrongInputComponent->BindAction(NavigateAction, ETriggerEvent::Triggered, this, &US_UI_InputController::OnNavigate); }
+				if (UInputAction* AcceptAction = StrongSettings->AcceptAction.Get()) { StrongInputComponent->BindAction(AcceptAction, ETriggerEvent::Started, this, &US_UI_InputController::OnAccept); }
+				if (UInputAction* BackAction = StrongSettings->BackAction.Get()) { StrongInputComponent->BindAction(BackAction, ETriggerEvent::Started, this, &US_UI_InputController::OnBack); }
+			});
 	}
 }
 
