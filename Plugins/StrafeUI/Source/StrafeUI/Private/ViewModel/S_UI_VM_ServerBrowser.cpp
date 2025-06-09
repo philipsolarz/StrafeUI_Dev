@@ -89,7 +89,7 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 	SessionSearch->PingBucketSize = 50; // Ping bucket size in ms
 
 	// Search for presence sessions (sessions that advertise themselves)
-	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCESEARCH")), true, EOnlineComparisonOp::Equals);
 
 	// Get the local player
 	UWorld* World = GetWorld();

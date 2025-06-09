@@ -3,9 +3,11 @@
 #include "System/S_GameUserSettings.h"
 #include "Engine/Engine.h"
 #include "AudioDevice.h"
+#include "Sound/SoundMix.h"
 #include "Sound/SoundClass.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -61,11 +63,21 @@ void US_GameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 
 void US_GameUserSettings::ApplyAudioSettings()
 {
-    // Apply volume settings to sound classes
-    ApplyVolumeToSoundClass(TEXT("Master"), MasterVolume);
-    ApplyVolumeToSoundClass(TEXT("Music"), MusicVolume);
-    ApplyVolumeToSoundClass(TEXT("SFX"), SFXVolume);
-    ApplyVolumeToSoundClass(TEXT("Voice"), VoiceVolume);
+    if (GEngine)
+    {
+        if (FAudioDeviceHandle AudioDeviceHandle = GEngine->GetMainAudioDevice())
+        {
+            if (FAudioDevice* AudioDevice = AudioDeviceHandle.GetAudioDevice())
+            {
+                // Apply volume settings to sound classes
+                ApplyVolumeToSoundClass(AudioDevice, TEXT("Master"), MasterVolume);
+                ApplyVolumeToSoundClass(AudioDevice, TEXT("Music"), MusicVolume);
+                ApplyVolumeToSoundClass(AudioDevice, TEXT("SFX"), SFXVolume);
+                ApplyVolumeToSoundClass(AudioDevice, TEXT("Voice"), VoiceVolume);
+            }
+        }
+    }
+
 
     UE_LOG(LogTemp, Log, TEXT("Applied audio settings - Master: %.2f, Music: %.2f, SFX: %.2f, Voice: %.2f"),
         MasterVolume, MusicVolume, SFXVolume, VoiceVolume);
@@ -73,7 +85,7 @@ void US_GameUserSettings::ApplyAudioSettings()
 
 void US_GameUserSettings::ApplyControlSettings()
 {
-    // Apply mouse sensitivity to all player controllers
+    // Apply mouse sensitivity and Y-axis inversion to all player controllers
     if (GEngine && GEngine->GetWorld())
     {
         for (FConstPlayerControllerIterator Iterator = GEngine->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -82,11 +94,7 @@ void US_GameUserSettings::ApplyControlSettings()
             {
                 if (UPlayerInput* PlayerInput = PC->PlayerInput)
                 {
-                    // Apply mouse sensitivity
                     PlayerInput->SetMouseSensitivity(MouseSensitivity);
-
-                    // Apply Y-axis inversion
-                    PlayerInput->bInvertMouseY = bInvertYAxis;
                 }
             }
         }
@@ -163,28 +171,21 @@ void US_GameUserSettings::SaveSettings()
     UE_LOG(LogTemp, Log, TEXT("Saved user settings to config"));
 }
 
-void US_GameUserSettings::ApplyVolumeToSoundClass(const FString& SoundClassName, float Volume)
+void US_GameUserSettings::ApplyVolumeToSoundClass(FAudioDevice* AudioDevice, const FString& SoundClassName, float Volume)
 {
-    if (!GEngine || !GEngine->GetMainAudioDevice())
+    if (!AudioDevice)
     {
         return;
     }
 
-    // Find the sound class by name
-    USoundClass* SoundClass = nullptr;
-
     // In a real implementation, you would have references to your sound classes
     // For now, we'll use a simple approach
     FString SoundClassPath = FString::Printf(TEXT("/Game/Audio/SoundClasses/SC_%s.SC_%s"), *SoundClassName, *SoundClassName);
-    SoundClass = LoadObject<USoundClass>(nullptr, *SoundClassPath);
+    USoundClass* SoundClass = LoadObject<USoundClass>(nullptr, *SoundClassPath);
 
     if (SoundClass)
     {
-        FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
-        if (AudioDevice)
-        {
-            AudioDevice->SetClassVolume(SoundClass, Volume);
-        }
+        AudioDevice->SetSoundMixClassOverride(GetMutableDefault<USoundMix>(), SoundClass, Volume, 1.0f, 0.0f, true);
     }
     else
     {

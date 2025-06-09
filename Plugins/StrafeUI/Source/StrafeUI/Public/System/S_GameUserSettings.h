@@ -6,6 +6,8 @@
 #include "GameFramework/GameUserSettings.h"
 #include "S_GameUserSettings.generated.h"
 
+class FAudioDevice;
+
 /**
  * Custom game user settings class that extends the engine's UGameUserSettings.
  * This class manages all game-specific settings and ensures they persist across sessions.
@@ -86,5 +88,5 @@ public:
 
 private:
     /** Apply a volume setting to a specific sound class */
-    void ApplyVolumeToSoundClass(const FString& SoundClassName, float Volume);
+    void ApplyVolumeToSoundClass(FAudioDevice* AudioDevice, const FString& SoundClassName, float Volume);
 };
