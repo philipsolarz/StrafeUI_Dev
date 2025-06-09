@@ -115,6 +115,9 @@ private:
     UFUNCTION()
     void HandleTabButtonCreation(FName TabId, UCommonButtonBase* TabButton);
 
+    /** Called when all tab assets have been loaded. */
+    void OnAllTabAssetsLoaded();
+
     /** Cached tab definitions. */
     UPROPERTY()
     TArray<FTabDefinition> TabDefinitions;
@@ -125,6 +128,9 @@ private:
     /** Counter for generating unique tab IDs. */
     int32 TabIdCounter = 0;
 
-    /** Handle for the asynchronous loading of the tab button class. */
-    TSharedPtr<FStreamableHandle> TabButtonClassHandle;
+    /** Handle for the asynchronous loading of all tab assets. */
+    TSharedPtr<FStreamableHandle> AllAssetsHandle;
+
+    /** The pending default tab index to select after loading. */
+    int32 PendingDefaultTabIndex = 0;
 };

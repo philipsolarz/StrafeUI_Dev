@@ -19,8 +19,19 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Tab Button")
     void SetTabLabelText(const FText& InText);
 
+    /** Gets the tab's display text. */
+    UFUNCTION(BlueprintCallable, Category = "Tab Button")
+    FText GetTabLabelText() const;
+
 protected:
+    virtual void NativeConstruct() override;
+    virtual void NativePreConstruct() override;
+
     /** The text block that displays the tab label. */
     UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
     class UCommonTextBlock* TabLabel;
+
+private:
+    /** Cached tab text to persist across reconstructions. */
+    FText CachedTabText;
 };

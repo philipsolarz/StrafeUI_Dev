@@ -10,6 +10,7 @@
  * @class US_UI_VM_Settings
  * @brief ViewModel for the Settings screen.
  *
+ * Acts as a temporary buffer between the UI and the persistent US_GameUserSettings.
  * Handles the data and logic for all game settings categories.
  */
 UCLASS(BlueprintType)
@@ -18,7 +19,11 @@ class STRAFEUI_API US_UI_VM_Settings : public US_UI_ViewModelBase
     GENERATED_BODY()
 
 public:
-    //~ Audio Settings
+    /** Initialize the view model and load settings */
+    UFUNCTION(BlueprintCallable, Category = "Settings")
+    void Initialize();
+
+    //~ Audio Settings (temporary buffer)
     /** The master volume level (0.0 to 1.0). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Audio")
     float MasterVolume = 1.0f;
@@ -35,7 +40,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Audio")
     float VoiceVolume = 1.0f;
 
-    //~ Video Settings
+    //~ Video Settings (temporary buffer)
     /** Whether VSync is enabled. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Video")
     bool bUseVSync = true;
@@ -60,8 +65,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Video")
     int32 WindowMode = 0;
 
-    //~ Controls Settings
-    /** Mouse sensitivity (0.1 to 2.0). */
+    //~ Controls Settings (temporary buffer)
+    /** Mouse sensitivity (0.1 to 3.0). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Controls")
     float MouseSensitivity = 1.0f;
 
@@ -69,7 +74,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Controls")
     bool bInvertYAxis = false;
 
-    //~ Gameplay Settings
+    //~ Gameplay Settings (temporary buffer)
     /** Field of view (60 to 120). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Gameplay")
     float FieldOfView = 90.0f;
@@ -78,8 +83,44 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Gameplay")
     bool bShowFPSCounter = false;
 
+    //~ Player Settings (temporary buffer)
+    /** Player display name. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Player")
+    FString PlayerName = TEXT("Player");
+
+    /** Selected character model index. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Player")
+    int32 SelectedCharacterModel = 0;
+
+    //~ Video Options Lists
+    /** Available screen resolutions. */
+    UPROPERTY(BlueprintReadOnly, Category = "Settings|Video")
+    TArray<FIntPoint> AvailableResolutions;
+
+    /** Resolution options as display strings. */
+    UPROPERTY(BlueprintReadOnly, Category = "Settings|Video")
+    TArray<FString> ResolutionOptions;
+
+    /** Window mode options. */
+    UPROPERTY(BlueprintReadOnly, Category = "Settings|Video")
+    TArray<FString> WindowModeOptions;
+
+    /** Quality level options. */
+    UPROPERTY(BlueprintReadOnly, Category = "Settings|Video")
+    TArray<FString> QualityOptions;
+
+    /** Anti-aliasing options. */
+    UPROPERTY(BlueprintReadOnly, Category = "Settings|Video")
+    TArray<FString> AntiAliasingOptions;
+
     /**
-     * Applies the current settings. This would typically save them to a config file.
+     * Loads settings from US_GameUserSettings into the temporary buffer.
+     */
+    UFUNCTION(BlueprintCallable, Category = "Settings")
+    void LoadSettings();
+
+    /**
+     * Applies the current settings from the temporary buffer to US_GameUserSettings.
      */
     UFUNCTION(BlueprintCallable, Category = "Settings")
     void ApplySettings();
@@ -97,10 +138,10 @@ public:
     void RestoreDefaults();
 
     /**
-     * Loads settings from the game's config files.
+     * Populates video option lists (resolutions, etc.).
      */
     UFUNCTION(BlueprintCallable, Category = "Settings")
-    void LoadSettings();
+    void PopulateVideoOptions();
 
 private:
     // Cached settings for reverting
@@ -127,10 +168,15 @@ private:
         // Gameplay
         float FieldOfView = 90.0f;
         bool bShowFPSCounter = false;
+
+        // Player
+        FString PlayerName = TEXT("Player");
+        int32 SelectedCharacterModel = 0;
     };
 
     FCachedSettings CachedSettings;
 
     void CacheCurrentSettings();
     void RestoreFromCache();
+    int32 GetResolutionIndex(const FIntPoint& Resolution) const;
 };

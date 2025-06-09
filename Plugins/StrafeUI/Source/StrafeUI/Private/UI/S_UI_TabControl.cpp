@@ -69,15 +69,31 @@ void US_UI_TabControl::InitializeTabs(const TArray<FTabDefinition>& InTabDefinit
         return;
     }
 
-    // Asynchronously load the tab button class to avoid blocking the game thread.
-    FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
-    FSoftObjectPath TabButtonPath = Settings->TabButtonClass.ToSoftObjectPath();
+    // Store the definitions and default index for later
+    TabDefinitions = InTabDefinitions;
+    PendingDefaultTabIndex = DefaultTabIndex;
 
-    // Use a weak pointer to this widget to prevent use-after-free if the widget is destroyed mid-load.
+    // Collect all assets that need to be loaded
+    TArray<FSoftObjectPath> AssetsToLoad;
+
+    // Add the tab button class
+    AssetsToLoad.Add(Settings->TabButtonClass.ToSoftObjectPath());
+
+    // Add all content widget classes
+    for (const FTabDefinition& TabDef : TabDefinitions)
+    {
+        if (!TabDef.ContentWidgetClass.IsNull())
+        {
+            AssetsToLoad.Add(TabDef.ContentWidgetClass.ToSoftObjectPath());
+        }
+    }
+
+    // Load all assets at once
+    FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
     TWeakObjectPtr<US_UI_TabControl> WeakThis = this;
 
-    TabButtonClassHandle = StreamableManager.RequestAsyncLoad(TabButtonPath,
-        [WeakThis, InTabDefinitions, DefaultTabIndex, TabButtonPath]()
+    AllAssetsHandle = StreamableManager.RequestAsyncLoad(AssetsToLoad,
+        [WeakThis]()
         {
             if (!WeakThis.IsValid())
             {
@@ -85,76 +101,90 @@ void US_UI_TabControl::InitializeTabs(const TArray<FTabDefinition>& InTabDefinit
             }
 
             US_UI_TabControl* StrongThis = WeakThis.Get();
-            UObject* LoadedAsset = TabButtonPath.ResolveObject();
-            TSubclassOf<UCommonButtonBase> TabButtonClass = Cast<UClass>(LoadedAsset);
-
-            if (!TabButtonClass)
-            {
-                UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to asynchronously load TabButtonClass!"));
-                return;
-            }
-
-            // --- The original logic from InitializeTabs now runs in this callback ---
-            StrongThis->TabList->RemoveAllTabs();
-            StrongThis->ContentSwitcher->ClearChildren();
-            StrongThis->TabDefinitions = InTabDefinitions;
-            StrongThis->TabIndexMap.Empty();
-            StrongThis->TabIdCounter = 0;
-
-            for (int32 i = 0; i < StrongThis->TabDefinitions.Num(); ++i)
-            {
-                const FTabDefinition& TabDef = StrongThis->TabDefinitions[i];
-                FName TabId = FName(*FString::Printf(TEXT("Tab_%d"), StrongThis->TabIdCounter++));
-                StrongThis->TabIndexMap.Add(TabId, i);
-
-                // Now that the content widget class is also a soft pointer, we should load it async too.
-                // For this refactor, we assume they were preloaded by the subsystem, but a more robust
-                // implementation might load them here on-demand.
-                UCommonActivatableWidget* ContentWidget = nullptr;
-                if (UClass* WidgetClass = TabDef.ContentWidgetClass.Get()) // Use .Get() assuming it's preloaded
-                {
-                    ContentWidget = CreateWidget<UCommonActivatableWidget>(StrongThis, WidgetClass);
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("TabControl: Content widget class for tab %s was not preloaded!"), *TabDef.TabName.ToString());
-                }
-
-                if (ContentWidget && TabButtonClass)
-                {
-                    if (!StrongThis->TabList->RegisterTab(TabId, TabButtonClass, ContentWidget))
-                    {
-                        UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to register tab %s"), *TabDef.TabName.ToString());
-                    }
-                }
-            }
-
-            if (StrongThis->TabDefinitions.IsValidIndex(DefaultTabIndex))
-            {
-                StrongThis->SelectTabByIndex(DefaultTabIndex);
-            }
-            else if (StrongThis->TabList->GetTabCount() > 0)
-            {
-                StrongThis->SelectTabByIndex(0);
-            }
-            // --- End of original logic ---
+            StrongThis->OnAllTabAssetsLoaded();
         });
+}
 
-    // Log visibility for debugging
-    UE_LOG(LogTemp, Warning, TEXT("TabList Visibility: %s"),
-        *UEnum::GetValueAsString(TabList->GetVisibility()));
-
-    // Force TabList to be visible if it's not
-    if (TabList->GetVisibility() != ESlateVisibility::Visible &&
-        TabList->GetVisibility() != ESlateVisibility::HitTestInvisible)
+void US_UI_TabControl::OnAllTabAssetsLoaded()
+{
+    const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
+    if (!Settings)
     {
-        UE_LOG(LogTemp, Warning, TEXT("TabControl: Forcing TabList to be Visible"));
-        TabList->SetVisibility(ESlateVisibility::Visible);
+        UE_LOG(LogTemp, Error, TEXT("TabControl: Settings became invalid during load"));
+        return;
     }
 
-    // Log content switcher state
-    UE_LOG(LogTemp, Warning, TEXT("TabControl: ContentSwitcher has %d children"),
+    TSubclassOf<UCommonButtonBase> TabButtonClass = Settings->TabButtonClass.Get();
+    if (!TabButtonClass)
+    {
+        UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to load TabButtonClass!"));
+        return;
+    }
+
+    // Clear existing tabs
+    TabList->RemoveAllTabs();
+    ContentSwitcher->ClearChildren();
+    TabIndexMap.Empty();
+    TabIdCounter = 0;
+
+    // Create tabs with loaded content
+    for (int32 i = 0; i < TabDefinitions.Num(); ++i)
+    {
+        const FTabDefinition& TabDef = TabDefinitions[i];
+        FName TabId = FName(*FString::Printf(TEXT("Tab_%d"), TabIdCounter++));
+        TabIndexMap.Add(TabId, i);
+
+        // Create the content widget
+        UCommonActivatableWidget* ContentWidget = nullptr;
+        if (UClass* WidgetClass = TabDef.ContentWidgetClass.Get())
+        {
+            ContentWidget = CreateWidget<UCommonActivatableWidget>(this, WidgetClass);
+            if (!ContentWidget)
+            {
+                UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to create content widget for tab %s"),
+                    *TabDef.TabName.ToString());
+                continue;
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TabControl: Content widget class for tab %s was not loaded!"),
+                *TabDef.TabName.ToString());
+            continue;
+        }
+
+        // Register the tab
+        if (!TabList->RegisterTab(TabId, TabButtonClass, ContentWidget))
+        {
+            UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to register tab %s"),
+                *TabDef.TabName.ToString());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Log, TEXT("TabControl: Successfully registered tab %s with %d content children"),
+                *TabDef.TabName.ToString(), ContentSwitcher->GetNumWidgets());
+        }
+    }
+
+    // Select the default tab
+    if (TabDefinitions.IsValidIndex(PendingDefaultTabIndex))
+    {
+        SelectTabByIndex(PendingDefaultTabIndex);
+    }
+    else if (TabList->GetTabCount() > 0)
+    {
+        SelectTabByIndex(0);
+    }
+
+    // Log final state
+    UE_LOG(LogTemp, Warning, TEXT("TabControl: Initialization complete. ContentSwitcher has %d children"),
         ContentSwitcher->GetNumWidgets());
+
+    // Force visibility
+    if (TabList->GetVisibility() != ESlateVisibility::Visible)
+    {
+        TabList->SetVisibility(ESlateVisibility::Visible);
+    }
 }
 
 void US_UI_TabControl::SelectTabByIndex(int32 TabIndex)
