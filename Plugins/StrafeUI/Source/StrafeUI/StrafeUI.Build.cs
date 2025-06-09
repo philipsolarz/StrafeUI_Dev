@@ -31,6 +31,7 @@ public class StrafeUI : ModuleRules
 				"UMG",
 				"CommonUI",
 				"EnhancedInput",
+				"InputCore",
 				"DeveloperSettings",
 				"AssetRegistry",
                 "OnlineSubsystem",
@@ -47,6 +48,7 @@ public class StrafeUI : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+                "RenderCore"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

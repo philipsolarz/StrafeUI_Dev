@@ -21,19 +21,25 @@ class STRAFEUI_API US_UI_SettingsWidget : public US_UI_BaseScreenWidget
     GENERATED_BODY()
 
 public:
-    /** Sets the ViewModel for this widget and triggers the initial UI update. */
+    /**
+     * Sets the ViewModel for this widget. This is the entry point for initializing
+     * the settings tabs with their content and data context.
+     */
     void SetViewModel(US_UI_ViewModelBase* InViewModel);
 
     virtual US_UI_ViewModelBase* CreateViewModel() override;
 
 protected:
     virtual void NativeOnInitialized() override;
-    virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
 
 private:
-    /** Initializes the tab control with settings categories. */
+    /** Initializes the tab control with settings categories defined in US_UI_Settings. */
     void InitializeSettingsTabs();
+
+    /** Called via delegate from the TabControl when all tab assets have finished loading. */
+    UFUNCTION()
+    void HandleTabsInitialized();
 
     /** Called when a settings tab is selected. */
     UFUNCTION()
@@ -69,4 +75,7 @@ private:
     /** Array of all settings tab content widgets. */
     UPROPERTY()
     TArray<US_UI_SettingsTabBase*> SettingsTabs;
+
+    /** Flag to ensure tabs are initialized only once. */
+    bool bTabsInitialized = false;
 };

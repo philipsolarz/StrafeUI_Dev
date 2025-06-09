@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "ViewModel/S_UI_ViewModelBase.h"
+#include "Data/S_UI_InputTypes.h"
 #include "S_UI_VM_Settings.generated.h"
 
 /**
@@ -73,6 +74,10 @@ public:
     /** Whether to invert Y axis. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Controls")
     bool bInvertYAxis = false;
+
+    /** Key bindings for game actions. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Settings|Controls")
+    TArray<FStrafeInputActionBinding> KeyBindings;
 
     //~ Gameplay Settings (temporary buffer)
     /** Field of view (60 to 120). */
@@ -164,6 +169,7 @@ private:
         // Controls
         float MouseSensitivity = 1.0f;
         bool bInvertYAxis = false;
+        TArray<FStrafeInputActionBinding> KeyBindings;
 
         // Gameplay
         float FieldOfView = 90.0f;

@@ -17,9 +17,8 @@ void US_UI_TabControl::NativeOnInitialized()
     if (TabList && ContentSwitcher)
     {
         TabList->OnTabSelected.AddDynamic(this, &US_UI_TabControl::HandleTabSelected);
+        // We no longer rely on this delegate for setting text, but it's good practice to keep the binding.
         TabList->OnTabButtonCreation.AddDynamic(this, &US_UI_TabControl::HandleTabButtonCreation);
-
-        // Set the linked switcher
         TabList->SetLinkedSwitcher(ContentSwitcher);
     }
 }
@@ -28,15 +27,12 @@ void US_UI_TabControl::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    // Force a layout refresh after construction
     if (TabList)
     {
         TabList->ForceLayoutPrepass();
 
-        // Ensure TabList is visible
         if (TabList->GetVisibility() != ESlateVisibility::Visible)
         {
-            UE_LOG(LogTemp, Warning, TEXT("TabControl: Setting TabList to Visible in NativeConstruct"));
             TabList->SetVisibility(ESlateVisibility::Visible);
         }
     }
@@ -49,19 +45,29 @@ void US_UI_TabControl::NativeDestruct()
         TabList->OnTabSelected.RemoveDynamic(this, &US_UI_TabControl::HandleTabSelected);
         TabList->OnTabButtonCreation.RemoveDynamic(this, &US_UI_TabControl::HandleTabButtonCreation);
     }
-
+    CancelAsyncLoad();
     Super::NativeDestruct();
+}
+
+void US_UI_TabControl::CancelAsyncLoad()
+{
+    if (AllAssetsHandle.IsValid())
+    {
+        AllAssetsHandle->CancelHandle();
+        AllAssetsHandle.Reset();
+    }
 }
 
 void US_UI_TabControl::InitializeTabs(const TArray<FTabDefinition>& InTabDefinitions, int32 DefaultTabIndex)
 {
+    CancelAsyncLoad();
+
     if (!TabList || !ContentSwitcher)
     {
         UE_LOG(LogTemp, Error, TEXT("TabControl: TabList or ContentSwitcher is null!"));
         return;
     }
 
-    // Get the tab button class from settings
     const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
     if (!Settings || Settings->TabButtonClass.IsNull())
     {
@@ -69,17 +75,11 @@ void US_UI_TabControl::InitializeTabs(const TArray<FTabDefinition>& InTabDefinit
         return;
     }
 
-    // Store the definitions and default index for later
     TabDefinitions = InTabDefinitions;
     PendingDefaultTabIndex = DefaultTabIndex;
 
-    // Collect all assets that need to be loaded
     TArray<FSoftObjectPath> AssetsToLoad;
-
-    // Add the tab button class
     AssetsToLoad.Add(Settings->TabButtonClass.ToSoftObjectPath());
-
-    // Add all content widget classes
     for (const FTabDefinition& TabDef : TabDefinitions)
     {
         if (!TabDef.ContentWidgetClass.IsNull())
@@ -88,85 +88,68 @@ void US_UI_TabControl::InitializeTabs(const TArray<FTabDefinition>& InTabDefinit
         }
     }
 
-    // Load all assets at once
     FStreamableManager& StreamableManager = UAssetManager::Get().GetStreamableManager();
-    TWeakObjectPtr<US_UI_TabControl> WeakThis = this;
-
-    AllAssetsHandle = StreamableManager.RequestAsyncLoad(AssetsToLoad,
-        [WeakThis]()
+    AllAssetsHandle = StreamableManager.RequestAsyncLoad(AssetsToLoad, [WeakThis = TWeakObjectPtr<US_UI_TabControl>(this)]()
         {
-            if (!WeakThis.IsValid())
+            if (WeakThis.IsValid())
             {
-                return; // The tab control was destroyed.
+                WeakThis->OnAllTabAssetsLoaded();
             }
-
-            US_UI_TabControl* StrongThis = WeakThis.Get();
-            StrongThis->OnAllTabAssetsLoaded();
         });
 }
 
 void US_UI_TabControl::OnAllTabAssetsLoaded()
 {
     const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
-    if (!Settings)
-    {
-        UE_LOG(LogTemp, Error, TEXT("TabControl: Settings became invalid during load"));
-        return;
-    }
+    TSubclassOf<UCommonButtonBase> TabButtonClass = Settings ? Settings->TabButtonClass.Get() : nullptr;
 
-    TSubclassOf<UCommonButtonBase> TabButtonClass = Settings->TabButtonClass.Get();
     if (!TabButtonClass)
     {
         UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to load TabButtonClass!"));
         return;
     }
 
-    // Clear existing tabs
     TabList->RemoveAllTabs();
     ContentSwitcher->ClearChildren();
     TabIndexMap.Empty();
     TabIdCounter = 0;
 
-    // Create tabs with loaded content
+    // First, register all tabs. This populates the TabList with new or recycled buttons.
     for (int32 i = 0; i < TabDefinitions.Num(); ++i)
     {
         const FTabDefinition& TabDef = TabDefinitions[i];
         FName TabId = FName(*FString::Printf(TEXT("Tab_%d"), TabIdCounter++));
         TabIndexMap.Add(TabId, i);
 
-        // Create the content widget
         UCommonActivatableWidget* ContentWidget = nullptr;
         if (UClass* WidgetClass = TabDef.ContentWidgetClass.Get())
         {
             ContentWidget = CreateWidget<UCommonActivatableWidget>(this, WidgetClass);
-            if (!ContentWidget)
+            if (ContentWidget)
             {
-                UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to create content widget for tab %s"),
-                    *TabDef.TabName.ToString());
-                continue;
+                ContentSwitcher->AddChild(ContentWidget);
             }
         }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("TabControl: Content widget class for tab %s was not loaded!"),
-                *TabDef.TabName.ToString());
-            continue;
-        }
+        TabList->RegisterTab(TabId, TabButtonClass, ContentWidget);
+    }
 
-        // Register the tab
-        if (!TabList->RegisterTab(TabId, TabButtonClass, ContentWidget))
+    // After registering all tabs, iterate through the newly created tab buttons to set their display text.
+    // This is done here to ensure it works correctly with CommonUI's widget recycling/pooling system,
+    // which can make the OnTabButtonCreation delegate unreliable for this purpose.
+    for (const TPair<FName, int32>& TabPair : TabIndexMap)
+    {
+        const FName& TabId = TabPair.Key;
+        const int32& TabIndex = TabPair.Value;
+
+        if (US_UI_TabButton* CustomTabButton = Cast<US_UI_TabButton>(TabList->GetTabButtonBaseByID(TabId)))
         {
-            UE_LOG(LogTemp, Error, TEXT("TabControl: Failed to register tab %s"),
-                *TabDef.TabName.ToString());
-        }
-        else
-        {
-            UE_LOG(LogTemp, Log, TEXT("TabControl: Successfully registered tab %s with %d content children"),
-                *TabDef.TabName.ToString(), ContentSwitcher->GetNumWidgets());
+            if (TabDefinitions.IsValidIndex(TabIndex))
+            {
+                CustomTabButton->SetTabLabelText(TabDefinitions[TabIndex].TabName);
+            }
         }
     }
 
-    // Select the default tab
     if (TabDefinitions.IsValidIndex(PendingDefaultTabIndex))
     {
         SelectTabByIndex(PendingDefaultTabIndex);
@@ -176,30 +159,24 @@ void US_UI_TabControl::OnAllTabAssetsLoaded()
         SelectTabByIndex(0);
     }
 
-    // Log final state
-    UE_LOG(LogTemp, Warning, TEXT("TabControl: Initialization complete. ContentSwitcher has %d children"),
-        ContentSwitcher->GetNumWidgets());
-
-    // Force visibility
-    if (TabList->GetVisibility() != ESlateVisibility::Visible)
-    {
-        TabList->SetVisibility(ESlateVisibility::Visible);
-    }
+    OnTabsInitialized.Broadcast();
 }
 
 void US_UI_TabControl::SelectTabByIndex(int32 TabIndex)
 {
-    if (!TabDefinitions.IsValidIndex(TabIndex))
+    if (!TabList || !TabDefinitions.IsValidIndex(TabIndex))
     {
         return;
     }
 
-    // Find the tab ID for this index
     for (const auto& Pair : TabIndexMap)
     {
         if (Pair.Value == TabIndex)
         {
-            TabList->SelectTabByID(Pair.Key);
+            if (TabList->GetSelectedTabId() != Pair.Key)
+            {
+                TabList->SelectTabByID(Pair.Key);
+            }
             break;
         }
     }
@@ -223,9 +200,7 @@ UCommonActivatableWidget* US_UI_TabControl::GetActiveTabContent() const
     {
         return nullptr;
     }
-
-    UWidget* ActiveWidget = ContentSwitcher->GetActiveWidget();
-    return Cast<UCommonActivatableWidget>(ActiveWidget);
+    return Cast<UCommonActivatableWidget>(ContentSwitcher->GetActiveWidget());
 }
 
 int32 US_UI_TabControl::GetSelectedTabIndex() const
@@ -240,7 +215,6 @@ int32 US_UI_TabControl::GetSelectedTabIndex() const
     {
         return *Index;
     }
-
     return -1;
 }
 
@@ -248,43 +222,21 @@ void US_UI_TabControl::HandleTabSelected(FName TabId)
 {
     if (const int32* Index = TabIndexMap.Find(TabId))
     {
-        // Since we've linked the switcher, it should switch automatically
-        // But we'll ensure the active widget index is correct
         if (ContentSwitcher && ContentSwitcher->GetActiveWidgetIndex() != *Index)
         {
             ContentSwitcher->SetActiveWidgetIndex(*Index);
         }
 
-        // Fire the event
-        FName TabTag = TabDefinitions.IsValidIndex(*Index) ? TabDefinitions[*Index].TabTag : NAME_None;
+        FName TabTag = (TabDefinitions.IsValidIndex(*Index)) ? TabDefinitions[*Index].TabTag : NAME_None;
         OnTabSelected.Broadcast(*Index, TabTag);
     }
 }
 
 void US_UI_TabControl::HandleTabButtonCreation(FName TabId, UCommonButtonBase* TabButton)
 {
-    UE_LOG(LogTemp, Warning, TEXT("TabControl: Tab button created for ID %s"), *TabId.ToString());
-
+    // We no longer set text here, but ensuring visibility is still good practice.
     if (TabButton)
     {
-        // Force the tab button to be visible
         TabButton->SetVisibility(ESlateVisibility::Visible);
-
-        // Set the tab text if it's our custom tab button
-        if (US_UI_TabButton* CustomTabButton = Cast<US_UI_TabButton>(TabButton))
-        {
-            // Find the tab definition for this ID
-            if (const int32* Index = TabIndexMap.Find(TabId))
-            {
-                if (TabDefinitions.IsValidIndex(*Index))
-                {
-                    CustomTabButton->SetTabLabelText(TabDefinitions[*Index].TabName);
-                }
-            }
-        }
-
-        // Log button visibility
-        UE_LOG(LogTemp, Warning, TEXT("Tab Button Visibility after fix: %s"),
-            *UEnum::GetValueAsString(TabButton->GetVisibility()));
     }
 }

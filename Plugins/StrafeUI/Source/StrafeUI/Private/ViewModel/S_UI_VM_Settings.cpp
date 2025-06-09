@@ -3,6 +3,8 @@
 #include "ViewModel/S_UI_VM_Settings.h"
 #include "System/S_GameUserSettings.h"
 #include "Engine/Engine.h"
+#include "Kismet/KismetSystemLibrary.h"
+
 
 void US_UI_VM_Settings::Initialize()
 {
@@ -33,8 +35,10 @@ void US_UI_VM_Settings::LoadSettings()
     AntiAliasingMode = GameSettings->GetAntiAliasingQuality();
 
     // Get current resolution
+    PopulateVideoOptions();
     FIntPoint CurrentRes = GameSettings->GetScreenResolution();
     ResolutionIndex = GetResolutionIndex(CurrentRes);
+
 
     // Get window mode
     WindowMode = (int32)GameSettings->GetFullscreenMode();
@@ -42,6 +46,7 @@ void US_UI_VM_Settings::LoadSettings()
     // Controls
     MouseSensitivity = GameSettings->MouseSensitivity;
     bInvertYAxis = GameSettings->bInvertYAxis;
+    KeyBindings = GameSettings->CustomKeyBindings;
 
     // Gameplay
     FieldOfView = GameSettings->FieldOfView;
@@ -92,6 +97,7 @@ void US_UI_VM_Settings::ApplySettings()
     // Controls
     GameSettings->MouseSensitivity = MouseSensitivity;
     GameSettings->bInvertYAxis = bInvertYAxis;
+    GameSettings->CustomKeyBindings = KeyBindings;
 
     // Gameplay
     GameSettings->FieldOfView = FieldOfView;
@@ -132,7 +138,11 @@ void US_UI_VM_Settings::RestoreDefaults()
     // Reset to defaults
     GameSettings->SetToDefaults();
 
-    // Reload into our properties
+    // Apply and Save the new defaults
+    GameSettings->ApplySettings(false);
+    GameSettings->SaveSettings();
+
+    // Reload into our properties to reflect the changes
     LoadSettings();
 
     UE_LOG(LogTemp, Log, TEXT("Settings restored to defaults"));
@@ -140,9 +150,13 @@ void US_UI_VM_Settings::RestoreDefaults()
 
 void US_UI_VM_Settings::PopulateVideoOptions()
 {
-    // Get available resolutions
-    AvailableResolutions.Empty();
-    UGameUserSettings::GetResolutionSettings(AvailableResolutions);
+    if (AvailableResolutions.Num() > 0)
+    {
+        return;
+    }
+
+    // Get available resolutions as FIntPoints
+    UKismetSystemLibrary::GetSupportedFullscreenResolutions(AvailableResolutions);
 
     // Sort resolutions by size (largest first)
     AvailableResolutions.Sort([](const FIntPoint& A, const FIntPoint& B)
@@ -150,7 +164,7 @@ void US_UI_VM_Settings::PopulateVideoOptions()
             return (A.X * A.Y) > (B.X * B.Y);
         });
 
-    // Populate resolution display strings
+    // Populate resolution display strings from the FIntPoint array
     ResolutionOptions.Empty();
     for (const FIntPoint& Resolution : AvailableResolutions)
     {
@@ -160,15 +174,17 @@ void US_UI_VM_Settings::PopulateVideoOptions()
     // Window mode options
     WindowModeOptions.Empty();
     WindowModeOptions.Add(TEXT("Fullscreen"));
-    WindowModeOptions.Add(TEXT("Windowed"));
     WindowModeOptions.Add(TEXT("Windowed Fullscreen"));
+    WindowModeOptions.Add(TEXT("Windowed"));
+
 
     // Quality options
     QualityOptions.Empty();
     QualityOptions.Add(TEXT("Low"));
     QualityOptions.Add(TEXT("Medium"));
     QualityOptions.Add(TEXT("High"));
-    QualityOptions.Add(TEXT("Ultra"));
+    QualityOptions.Add(TEXT("Epic"));
+    QualityOptions.Add(TEXT("Cinematic"));
 
     // Anti-aliasing options
     AntiAliasingOptions.Empty();
@@ -176,6 +192,7 @@ void US_UI_VM_Settings::PopulateVideoOptions()
     AntiAliasingOptions.Add(TEXT("FXAA"));
     AntiAliasingOptions.Add(TEXT("TAA"));
     AntiAliasingOptions.Add(TEXT("MSAA"));
+    AntiAliasingOptions.Add(TEXT("TSR"));
 }
 
 int32 US_UI_VM_Settings::GetResolutionIndex(const FIntPoint& Resolution) const
@@ -209,6 +226,7 @@ void US_UI_VM_Settings::CacheCurrentSettings()
     // Controls
     CachedSettings.MouseSensitivity = MouseSensitivity;
     CachedSettings.bInvertYAxis = bInvertYAxis;
+    CachedSettings.KeyBindings = KeyBindings;
 
     // Gameplay
     CachedSettings.FieldOfView = FieldOfView;
@@ -238,6 +256,7 @@ void US_UI_VM_Settings::RestoreFromCache()
     // Controls
     MouseSensitivity = CachedSettings.MouseSensitivity;
     bInvertYAxis = CachedSettings.bInvertYAxis;
+    KeyBindings = CachedSettings.KeyBindings;
 
     // Gameplay
     FieldOfView = CachedSettings.FieldOfView;
