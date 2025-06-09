@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UI/S_UI_SettingsTabBase.h"
-#include "InputCoreTypes.h"
+#include "Data/S_UI_InputTypes.h"
 #include "S_UI_ControlsSettingsTab.generated.h"
 
 class USlider;
@@ -14,34 +14,6 @@ class UScrollBox;
 class US_UI_KeyBindingWidget;
 class UCommonButtonBase;
 
-/**
- * Input action binding data
- */
-USTRUCT(BlueprintType)
-struct FInputActionBinding
-{
-    GENERATED_BODY()
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FName ActionName;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FText DisplayName;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FKey PrimaryKey;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FKey SecondaryKey;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FString Category;
-
-    FInputActionBinding()
-    {
-        Category = "General";
-    }
-};
 
 /**
  * Enhanced controls settings tab with key bindings
@@ -74,10 +46,8 @@ private:
     UFUNCTION()
     void OnResetToDefaultsClicked();
 
-    void LoadInputBindings();
-    void SaveInputBindings();
     void PopulateKeyBindings();
-    void CreateKeyBindingWidget(const FInputActionBinding& Binding);
+    void CreateKeyBindingWidget(const FStrafeInputActionBinding& Binding);
 
     // UI Bindings
     UPROPERTY(meta = (BindWidget))
@@ -105,17 +75,16 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Controls")
     TSubclassOf<US_UI_KeyBindingWidget> KeyBindingWidgetClass;
 
-    // Current input bindings
+    // Current input bindings, buffered from the ViewModel for UI interaction
     UPROPERTY()
-    TArray<FInputActionBinding> InputBindings;
+    TArray<FStrafeInputActionBinding> InputBindings;
 
-    // Cached original values
+    // Cached original values to detect changes
     float OriginalMouseSensitivity = 1.0f;
     bool bOriginalInvertY = false;
-    TArray<FInputActionBinding> OriginalInputBindings;
+    TArray<FStrafeInputActionBinding> OriginalInputBindings;
 
     // References to created key binding widgets
     UPROPERTY()
-    TArray<US_UI_KeyBindingWidget*> KeyBindingWidgets;
+    TArray<TObjectPtr<US_UI_KeyBindingWidget>> KeyBindingWidgets;
 };
-

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Data/S_UI_InputTypes.h" // Include the new header for our custom struct
 #include "S_GameUserSettings.generated.h"
 
 class FAudioDevice;
@@ -12,7 +13,7 @@ class FAudioDevice;
  * Custom game user settings class that extends the engine's UGameUserSettings.
  * This class manages all game-specific settings and ensures they persist across sessions.
  */
-UCLASS()
+UCLASS(Config = Game)
 class STRAFEUI_API US_GameUserSettings : public UGameUserSettings
 {
     GENERATED_BODY()
@@ -49,6 +50,10 @@ public:
     UPROPERTY(Config, BlueprintReadWrite, Category = "Controls")
     bool bInvertYAxis;
 
+    /** Custom key bindings for actions. This will be saved in GameUserSettings.ini */
+    UPROPERTY(Config)
+    TArray<FStrafeInputActionBinding> CustomKeyBindings;
+
     //~ Gameplay Settings
     UPROPERTY(Config, BlueprintReadWrite, Category = "Gameplay")
     float FieldOfView;
@@ -83,8 +88,10 @@ public:
     virtual void LoadSettings(bool bForceReload = false) override;
 
     /** Save all settings to config */
-    //UFUNCTION(BlueprintCallable, Category = "Settings")
     void SaveSettings();
+
+    /** Gets the list of default action mappings. */
+    static void GetDefaultActionMappings(TArray<FStrafeInputActionBinding>& OutMappings);
 
 private:
     /** Apply a volume setting to a specific sound class */

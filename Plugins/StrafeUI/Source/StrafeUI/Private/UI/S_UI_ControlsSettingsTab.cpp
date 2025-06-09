@@ -5,10 +5,12 @@
 #include "Components/CheckBox.h"
 #include "Components/TextBlock.h"
 #include "Components/ScrollBox.h"
+#include "Components/Border.h"
 #include "CommonButtonBase.h"
 #include "UI/S_UI_KeyBindingWidget.h"
 #include "ViewModel/S_UI_VM_Settings.h"
-#include "GameFramework/InputSettings.h"
+#include "System/S_GameUserSettings.h"
+#include "Styling/CoreStyle.h"
 
 void US_UI_ControlsSettingsTab::NativeOnInitialized()
 {
@@ -32,17 +34,17 @@ void US_UI_ControlsSettingsTab::NativeOnInitialized()
     {
         Btn_ResetToDefaults->OnClicked().AddUObject(this, &US_UI_ControlsSettingsTab::OnResetToDefaultsClicked);
     }
-
-    // Load current input bindings
-    LoadInputBindings();
 }
 
 void US_UI_ControlsSettingsTab::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    // Populate key binding widgets
-    PopulateKeyBindings();
+    // Populate key binding widgets if they haven't been already
+    if (ViewModel.IsValid() && KeyBindingWidgets.Num() == 0)
+    {
+        PopulateKeyBindings();
+    }
 }
 
 void US_UI_ControlsSettingsTab::OnViewModelDataChanged()
@@ -61,7 +63,9 @@ void US_UI_ControlsSettingsTab::OnViewModelDataChanged()
 
     if (Text_MouseSensitivityValue)
     {
-        Text_MouseSensitivityValue->SetText(FText::AsNumber(ViewModel->MouseSensitivity, &FNumberFormattingOptions::DefaultNoGrouping()));
+        FNumberFormattingOptions Opts;
+        Opts.SetMaximumFractionalDigits(1);
+        Text_MouseSensitivityValue->SetText(FText::AsNumber(ViewModel->MouseSensitivity, &Opts));
     }
 
     // Update Invert Y
@@ -70,85 +74,11 @@ void US_UI_ControlsSettingsTab::OnViewModelDataChanged()
         Chk_InvertY->SetIsChecked(ViewModel->bInvertYAxis);
         bOriginalInvertY = ViewModel->bInvertYAxis;
     }
-}
 
-void US_UI_ControlsSettingsTab::LoadInputBindings()
-{
-    InputBindings.Empty();
-
-    // Define default input actions
-    // Movement
-    FInputActionBinding MoveForward;
-    MoveForward.ActionName = "MoveForward";
-    MoveForward.DisplayName = FText::FromString("Move Forward");
-    MoveForward.PrimaryKey = EKeys::W;
-    MoveForward.SecondaryKey = EKeys::Up;
-    MoveForward.Category = "Movement";
-    InputBindings.Add(MoveForward);
-
-    FInputActionBinding MoveBackward;
-    MoveBackward.ActionName = "MoveBackward";
-    MoveBackward.DisplayName = FText::FromString("Move Backward");
-    MoveBackward.PrimaryKey = EKeys::S;
-    MoveBackward.SecondaryKey = EKeys::Down;
-    MoveBackward.Category = "Movement";
-    InputBindings.Add(MoveBackward);
-
-    FInputActionBinding MoveLeft;
-    MoveLeft.ActionName = "MoveLeft";
-    MoveLeft.DisplayName = FText::FromString("Move Left");
-    MoveLeft.PrimaryKey = EKeys::A;
-    MoveLeft.SecondaryKey = EKeys::Left;
-    MoveLeft.Category = "Movement";
-    InputBindings.Add(MoveLeft);
-
-    FInputActionBinding MoveRight;
-    MoveRight.ActionName = "MoveRight";
-    MoveRight.DisplayName = FText::FromString("Move Right");
-    MoveRight.PrimaryKey = EKeys::D;
-    MoveRight.SecondaryKey = EKeys::Right;
-    MoveRight.Category = "Movement";
-    InputBindings.Add(MoveRight);
-
-    FInputActionBinding Jump;
-    Jump.ActionName = "Jump";
-    Jump.DisplayName = FText::FromString("Jump");
-    Jump.PrimaryKey = EKeys::SpaceBar;
-    Jump.Category = "Movement";
-    InputBindings.Add(Jump);
-
-    FInputActionBinding Crouch;
-    Crouch.ActionName = "Crouch";
-    Crouch.DisplayName = FText::FromString("Crouch");
-    Crouch.PrimaryKey = EKeys::LeftControl;
-    Crouch.SecondaryKey = EKeys::C;
-    Crouch.Category = "Movement";
-    InputBindings.Add(Crouch);
-
-    // Combat
-    FInputActionBinding Fire;
-    Fire.ActionName = "Fire";
-    Fire.DisplayName = FText::FromString("Fire");
-    Fire.PrimaryKey = EKeys::LeftMouseButton;
-    Fire.Category = "Combat";
-    InputBindings.Add(Fire);
-
-    FInputActionBinding AltFire;
-    AltFire.ActionName = "AltFire";
-    AltFire.DisplayName = FText::FromString("Alt Fire / Aim");
-    AltFire.PrimaryKey = EKeys::RightMouseButton;
-    AltFire.Category = "Combat";
-    InputBindings.Add(AltFire);
-
-    FInputActionBinding Reload;
-    Reload.ActionName = "Reload";
-    Reload.DisplayName = FText::FromString("Reload");
-    Reload.PrimaryKey = EKeys::R;
-    Reload.Category = "Combat";
-    InputBindings.Add(Reload);
-
-    // In a real implementation, load from saved settings
-    OriginalInputBindings = InputBindings;
+    // Update Keybindings from ViewModel
+    InputBindings = ViewModel->KeyBindings;
+    OriginalInputBindings = ViewModel->KeyBindings; // Cache for revert check
+    PopulateKeyBindings();
 }
 
 void US_UI_ControlsSettingsTab::PopulateKeyBindings()
@@ -164,18 +94,34 @@ void US_UI_ControlsSettingsTab::PopulateKeyBindings()
 
     FString LastCategory;
 
-    for (const FInputActionBinding& Binding : InputBindings)
+    for (const FStrafeInputActionBinding& Binding : InputBindings)
     {
         // Add category header if changed
         if (Binding.Category != LastCategory)
         {
             LastCategory = Binding.Category;
 
-            // Create category header (you'd have a proper widget for this)
-            UTextBlock* CategoryHeader = NewObject<UTextBlock>(this);
-            CategoryHeader->SetText(FText::FromString(Binding.Category));
-            CategoryHeader->SetFont(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 14));
-            ScrollBox_KeyBindings->AddChild(CategoryHeader);
+            UBorder* CategoryContainer = NewObject<UBorder>(this);
+            if (CategoryContainer)
+            {
+                CategoryContainer->SetPadding(FMargin(4, 10, 4, 2));
+                CategoryContainer->SetBrushColor(FLinearColor::Transparent);
+
+                UTextBlock* CategoryHeader = NewObject<UTextBlock>(this);
+                if (CategoryHeader)
+                {
+                    CategoryHeader->SetText(FText::FromString(Binding.Category));
+                    // Use a predefined engine style to avoid deprecated constructor warnings
+                    const FName StyleName = FName(TEXT("NormalText"));
+                    FSlateFontInfo FontInfo = FCoreStyle::Get().GetFontStyle(StyleName);
+                    FontInfo.Size = 16; // Adjust size as needed
+                    CategoryHeader->SetFont(FontInfo);
+
+                    CategoryContainer->AddChild(CategoryHeader);
+                }
+
+                ScrollBox_KeyBindings->AddChild(CategoryContainer);
+            }
         }
 
         // Create primary key binding widget
@@ -183,7 +129,7 @@ void US_UI_ControlsSettingsTab::PopulateKeyBindings()
     }
 }
 
-void US_UI_ControlsSettingsTab::CreateKeyBindingWidget(const FInputActionBinding& Binding)
+void US_UI_ControlsSettingsTab::CreateKeyBindingWidget(const FStrafeInputActionBinding& Binding)
 {
     if (!KeyBindingWidgetClass || !ScrollBox_KeyBindings)
     {
@@ -211,7 +157,9 @@ void US_UI_ControlsSettingsTab::OnMouseSensitivityChanged(float Value)
 
         if (Text_MouseSensitivityValue)
         {
-            Text_MouseSensitivityValue->SetText(FText::AsNumber(Value, &FNumberFormattingOptions::DefaultNoGrouping()));
+            FNumberFormattingOptions Opts;
+            Opts.SetMaximumFractionalDigits(1);
+            Text_MouseSensitivityValue->SetText(FText::AsNumber(Value, &Opts));
         }
     }
 }
@@ -226,59 +174,58 @@ void US_UI_ControlsSettingsTab::OnInvertYChanged(bool bIsChecked)
 
 void US_UI_ControlsSettingsTab::OnKeyBindingChanged(FName ActionName, FKey NewKey)
 {
-    // Update the binding in our array
-    for (FInputActionBinding& Binding : InputBindings)
+    bool bChanged = false;
+    for (FStrafeInputActionBinding& Binding : InputBindings)
     {
         if (Binding.ActionName == ActionName)
         {
-            Binding.PrimaryKey = NewKey;
+            if (Binding.PrimaryKey != NewKey)
+            {
+                Binding.PrimaryKey = NewKey;
+                bChanged = true;
+            }
             break;
         }
+    }
+
+    if (bChanged && ViewModel.IsValid())
+    {
+        ViewModel->KeyBindings = InputBindings;
     }
 }
 
 void US_UI_ControlsSettingsTab::OnResetToDefaultsClicked()
 {
-    // Reset mouse settings
     if (ViewModel.IsValid())
     {
+        TArray<FStrafeInputActionBinding> DefaultBindings;
+        US_GameUserSettings::GetDefaultActionMappings(DefaultBindings);
+
         ViewModel->MouseSensitivity = 1.0f;
         ViewModel->bInvertYAxis = false;
+        ViewModel->KeyBindings = DefaultBindings;
+
+        ViewModel->BroadcastDataChanged();
     }
-
-    // Reset key bindings
-    LoadInputBindings(); // This reloads defaults
-    PopulateKeyBindings();
-
-    // Update UI
-    OnViewModelDataChanged();
 }
 
 void US_UI_ControlsSettingsTab::ApplySettings()
 {
     if (ViewModel.IsValid())
     {
+        ViewModel->KeyBindings = InputBindings;
+        OriginalInputBindings = InputBindings;
         OriginalMouseSensitivity = ViewModel->MouseSensitivity;
         bOriginalInvertY = ViewModel->bInvertYAxis;
     }
-
-    OriginalInputBindings = InputBindings;
-    SaveInputBindings();
 }
 
 void US_UI_ControlsSettingsTab::RevertSettings()
 {
     if (ViewModel.IsValid())
     {
-        ViewModel->MouseSensitivity = OriginalMouseSensitivity;
-        ViewModel->bInvertYAxis = bOriginalInvertY;
+        ViewModel->BroadcastDataChanged();
     }
-
-    InputBindings = OriginalInputBindings;
-    PopulateKeyBindings();
-
-    // Update UI
-    OnViewModelDataChanged();
 }
 
 bool US_UI_ControlsSettingsTab::HasUnsavedChanges() const
@@ -288,14 +235,12 @@ bool US_UI_ControlsSettingsTab::HasUnsavedChanges() const
         return false;
     }
 
-    // Check basic settings
     if (FMath::Abs(ViewModel->MouseSensitivity - OriginalMouseSensitivity) > KINDA_SMALL_NUMBER ||
         ViewModel->bInvertYAxis != bOriginalInvertY)
     {
         return true;
     }
 
-    // Check key bindings
     if (InputBindings.Num() != OriginalInputBindings.Num())
     {
         return true;
@@ -311,10 +256,4 @@ bool US_UI_ControlsSettingsTab::HasUnsavedChanges() const
     }
 
     return false;
-}
-
-void US_UI_ControlsSettingsTab::SaveInputBindings()
-{
-    // In a real implementation, save to input settings config
-    UE_LOG(LogTemp, Log, TEXT("Saving input bindings..."));
 }

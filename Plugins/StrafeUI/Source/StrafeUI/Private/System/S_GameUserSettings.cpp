@@ -7,6 +7,7 @@
 #include "Sound/SoundClass.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
+#include "GameFramework/InputSettings.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -21,6 +22,23 @@ US_GameUserSettings* US_GameUserSettings::GetStrafeuiGameUserSettings()
 {
     return Cast<US_GameUserSettings>(UGameUserSettings::GetGameUserSettings());
 }
+
+void US_GameUserSettings::GetDefaultActionMappings(TArray<FStrafeInputActionBinding>& OutMappings)
+{
+    OutMappings.Empty();
+    // Movement
+    OutMappings.Emplace(FName("MoveForward"), FText::FromString("Move Forward"), EKeys::W, EKeys::Up, TEXT("Movement"));
+    OutMappings.Emplace(FName("MoveBackward"), FText::FromString("Move Backward"), EKeys::S, EKeys::Down, TEXT("Movement"));
+    OutMappings.Emplace(FName("MoveLeft"), FText::FromString("Move Left"), EKeys::A, EKeys::Left, TEXT("Movement"));
+    OutMappings.Emplace(FName("MoveRight"), FText::FromString("Move Right"), EKeys::D, EKeys::Right, TEXT("Movement"));
+    OutMappings.Emplace(FName("Jump"), FText::FromString("Jump"), EKeys::SpaceBar, EKeys::Invalid, TEXT("Movement"));
+    OutMappings.Emplace(FName("Crouch"), FText::FromString("Crouch"), EKeys::LeftControl, EKeys::C, TEXT("Movement"));
+    // Combat
+    OutMappings.Emplace(FName("Fire"), FText::FromString("Fire"), EKeys::LeftMouseButton, EKeys::Invalid, TEXT("Combat"));
+    OutMappings.Emplace(FName("AltFire"), FText::FromString("Alt Fire / Aim"), EKeys::RightMouseButton, EKeys::Invalid, TEXT("Combat"));
+    OutMappings.Emplace(FName("Reload"), FText::FromString("Reload"), EKeys::R, EKeys::Invalid, TEXT("Combat"));
+}
+
 
 void US_GameUserSettings::SetToDefaults()
 {
@@ -44,6 +62,9 @@ void US_GameUserSettings::SetToDefaults()
     // Player defaults
     PlayerName = TEXT("Player");
     SelectedCharacterModel = 0;
+
+    // Key binding defaults
+    GetDefaultActionMappings(CustomKeyBindings);
 }
 
 void US_GameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
@@ -100,8 +121,68 @@ void US_GameUserSettings::ApplyControlSettings()
         }
     }
 
+    // --- Apply Key Bindings ---
+    UInputSettings* InputSettings = GetMutableDefault<UInputSettings>();
+    if (!InputSettings)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to get InputSettings for applying key bindings."));
+        return;
+    }
+
+    // Create a set of unique action names we are managing
+    TSet<FName> ManagedActionNames;
+    for (const FStrafeInputActionBinding& Binding : CustomKeyBindings)
+    {
+        ManagedActionNames.Add(Binding.ActionName);
+    }
+
+    // Remove all old mappings for the actions we manage
+    for (const FName& ActionName : ManagedActionNames)
+    {
+        TArray<FInputActionKeyMapping> OldMappings;
+        InputSettings->GetActionMappingByName(ActionName, OldMappings);
+        for (const FInputActionKeyMapping& OldMapping : OldMappings)
+        {
+            InputSettings->RemoveActionMapping(OldMapping);
+        }
+    }
+
+    // Add the new mappings from our settings
+    for (const FStrafeInputActionBinding& Binding : CustomKeyBindings)
+    {
+        if (Binding.PrimaryKey.IsValid())
+        {
+            FInputActionKeyMapping NewMapping(Binding.ActionName, Binding.PrimaryKey);
+            InputSettings->AddActionMapping(NewMapping);
+        }
+        if (Binding.SecondaryKey.IsValid())
+        {
+            FInputActionKeyMapping NewMapping(Binding.ActionName, Binding.SecondaryKey);
+            InputSettings->AddActionMapping(NewMapping);
+        }
+    }
+
+    // Save the changes to the config file (Input.ini)
+    InputSettings->SaveKeyMappings();
+
+    // Rebuild keymaps for all active players to apply changes immediately
+    if (GEngine && GEngine->GetWorld())
+    {
+        for (FConstPlayerControllerIterator It = GEngine->GetWorld()->GetPlayerControllerIterator(); It; ++It)
+        {
+            if (APlayerController* PC = It->Get())
+            {
+                if (PC->PlayerInput)
+                {
+                    PC->PlayerInput->ForceRebuildingKeyMaps(true);
+                }
+            }
+        }
+    }
+
     UE_LOG(LogTemp, Log, TEXT("Applied control settings - Mouse Sensitivity: %.2f, Invert Y: %s"),
         MouseSensitivity, bInvertYAxis ? TEXT("Yes") : TEXT("No"));
+    UE_LOG(LogTemp, Log, TEXT("Applied and rebuilt custom key bindings."));
 }
 
 void US_GameUserSettings::ApplyGameplaySettings()
@@ -148,6 +229,13 @@ void US_GameUserSettings::LoadSettings(bool bForceReload)
 {
     // Load parent settings
     Super::LoadSettings(bForceReload);
+
+    // If custom keybindings are not loaded from config (e.g., first run), populate with defaults.
+    if (CustomKeyBindings.Num() == 0)
+    {
+        UE_LOG(LogTemp, Log, TEXT("No custom key bindings found in config, loading defaults."));
+        GetDefaultActionMappings(CustomKeyBindings);
+    }
 
     // Our custom settings are automatically loaded from config due to UPROPERTY(Config)
     // But we should validate them

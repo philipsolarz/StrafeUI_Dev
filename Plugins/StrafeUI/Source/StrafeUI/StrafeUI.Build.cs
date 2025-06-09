@@ -31,6 +31,7 @@ public class StrafeUI : ModuleRules
 				"UMG",
 				"CommonUI",
 				"EnhancedInput",
+				"InputCore",
 				"DeveloperSettings",
 				"AssetRegistry",
                 "OnlineSubsystem",

@@ -46,6 +46,7 @@ void US_UI_VM_Settings::LoadSettings()
     // Controls
     MouseSensitivity = GameSettings->MouseSensitivity;
     bInvertYAxis = GameSettings->bInvertYAxis;
+    KeyBindings = GameSettings->CustomKeyBindings;
 
     // Gameplay
     FieldOfView = GameSettings->FieldOfView;
@@ -96,6 +97,7 @@ void US_UI_VM_Settings::ApplySettings()
     // Controls
     GameSettings->MouseSensitivity = MouseSensitivity;
     GameSettings->bInvertYAxis = bInvertYAxis;
+    GameSettings->CustomKeyBindings = KeyBindings;
 
     // Gameplay
     GameSettings->FieldOfView = FieldOfView;
@@ -136,7 +138,11 @@ void US_UI_VM_Settings::RestoreDefaults()
     // Reset to defaults
     GameSettings->SetToDefaults();
 
-    // Reload into our properties
+    // Apply and Save the new defaults
+    GameSettings->ApplySettings(false);
+    GameSettings->SaveSettings();
+
+    // Reload into our properties to reflect the changes
     LoadSettings();
 
     UE_LOG(LogTemp, Log, TEXT("Settings restored to defaults"));
@@ -220,6 +226,7 @@ void US_UI_VM_Settings::CacheCurrentSettings()
     // Controls
     CachedSettings.MouseSensitivity = MouseSensitivity;
     CachedSettings.bInvertYAxis = bInvertYAxis;
+    CachedSettings.KeyBindings = KeyBindings;
 
     // Gameplay
     CachedSettings.FieldOfView = FieldOfView;
@@ -249,6 +256,7 @@ void US_UI_VM_Settings::RestoreFromCache()
     // Controls
     MouseSensitivity = CachedSettings.MouseSensitivity;
     bInvertYAxis = CachedSettings.bInvertYAxis;
+    KeyBindings = CachedSettings.KeyBindings;
 
     // Gameplay
     FieldOfView = CachedSettings.FieldOfView;
