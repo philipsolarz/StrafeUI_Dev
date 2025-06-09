@@ -30,14 +30,21 @@ protected:
     virtual void NativeOnInitialized() override;
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
+    virtual void NativeOnActivated() override;
 
 private:
     /** Initializes the tab control with settings categories. */
     void InitializeSettingsTabs();
 
+    /** Attempts to initialize tabs if all conditions are met. */
+    void TryInitializeTabs();
+
     /** Called when a settings tab is selected. */
     UFUNCTION()
     void OnSettingsTabSelected(int32 TabIndex, FName TabTag);
+
+    UFUNCTION()
+    void HandleTabsInitialized();
 
     //~ Button Click Handlers
     UFUNCTION()
@@ -69,4 +76,10 @@ private:
     /** Array of all settings tab content widgets. */
     UPROPERTY()
     TArray<US_UI_SettingsTabBase*> SettingsTabs;
+
+    /** Flag to ensure tabs are initialized only once. */
+    bool bTabsInitialized = false;
+
+    /** Flag to ensure the widget has run NativeConstruct. */
+    bool bHasBeenConstructed = false;
 };
