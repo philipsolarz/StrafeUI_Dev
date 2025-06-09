@@ -24,7 +24,6 @@ struct FTabDefinition
     FName TabTag;
 };
 
-// *** BUG FIX: Add a delegate to signal when initialization is complete. ***
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTabsInitialized);
 
 UCLASS(Abstract)
@@ -33,7 +32,7 @@ class STRAFEUI_API US_UI_TabControl : public UCommonUserWidget
     GENERATED_BODY()
 
 public:
-    /** Delegate broadcast when all tabs have been loaded and created. */
+    /** Delegate broadcast when all tab assets have been loaded and their content widgets created. */
     UPROPERTY(BlueprintAssignable, Category = "Tab Control")
     FOnTabsInitialized OnTabsInitialized;
 
@@ -62,7 +61,6 @@ protected:
     TObjectPtr<UCommonActivatableWidgetSwitcher> ContentSwitcher;
 
 private:
-    // ... same as before
     UFUNCTION()
     void HandleTabSelected(FName TabId);
 

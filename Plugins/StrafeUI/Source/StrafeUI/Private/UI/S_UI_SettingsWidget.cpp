@@ -22,8 +22,12 @@ void US_UI_SettingsWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
     if (US_UI_VM_Settings* InSettingsViewModel = Cast<US_UI_VM_Settings>(InViewModel))
     {
         ViewModel = InSettingsViewModel;
-        // Attempt to initialize, will only succeed if the widget has also been constructed.
-        TryInitializeTabs();
+
+        // Initialize tabs now that we have the view model, but only do it once.
+        if (!bTabsInitialized)
+        {
+            InitializeSettingsTabs();
+        }
     }
 }
 
@@ -49,14 +53,6 @@ void US_UI_SettingsWidget::NativeOnInitialized()
     }
 }
 
-void US_UI_SettingsWidget::NativeConstruct()
-{
-    Super::NativeConstruct();
-    bHasBeenConstructed = true;
-    // Attempt to initialize, will only succeed if the ViewModel has also been set.
-    TryInitializeTabs();
-}
-
 void US_UI_SettingsWidget::NativeDestruct()
 {
     if (TabControl)
@@ -67,29 +63,17 @@ void US_UI_SettingsWidget::NativeDestruct()
     }
 
     bTabsInitialized = false;
-    bHasBeenConstructed = false;
 
     Super::NativeDestruct();
 }
 
-void US_UI_SettingsWidget::NativeOnActivated()
-{
-    Super::NativeOnActivated();
-    // This is a good fallback, but our new handshake logic in SetViewModel/NativeConstruct is more reliable.
-    TryInitializeTabs();
-}
-
-void US_UI_SettingsWidget::TryInitializeTabs()
-{
-    // This is our handshake. Initialization only proceeds if the widget has been constructed AND the ViewModel is set.
-    if (bHasBeenConstructed && ViewModel.IsValid() && !bTabsInitialized)
-    {
-        InitializeSettingsTabs();
-    }
-}
-
 void US_UI_SettingsWidget::InitializeSettingsTabs()
 {
+    // Prevent re-initialization
+    if (bTabsInitialized || !TabControl || !ViewModel.IsValid())
+    {
+        return;
+    }
     bTabsInitialized = true;
 
     const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
@@ -143,6 +127,7 @@ void US_UI_SettingsWidget::InitializeSettingsTabs()
 
     if (TabDefs.Num() > 0 && TabControl)
     {
+        // Bind the callback for when the tab control has finished creating the tab content widgets.
         TabControl->OnTabsInitialized.AddDynamic(this, &US_UI_SettingsWidget::HandleTabsInitialized);
         TabControl->InitializeTabs(TabDefs, 0);
     }

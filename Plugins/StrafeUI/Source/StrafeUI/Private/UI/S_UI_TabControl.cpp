@@ -133,8 +133,9 @@ void US_UI_TabControl::OnAllTabAssetsLoaded()
         TabList->RegisterTab(TabId, TabButtonClass, ContentWidget);
     }
 
-    // *** THE FINAL FIX: After all tabs are registered, iterate through them and set their text directly. ***
-    // This bypasses the unreliable OnTabButtonCreation delegate and guarantees the text is set correctly every time.
+    // After registering all tabs, iterate through the newly created tab buttons to set their display text.
+    // This is done here to ensure it works correctly with CommonUI's widget recycling/pooling system,
+    // which can make the OnTabButtonCreation delegate unreliable for this purpose.
     for (const TPair<FName, int32>& TabPair : TabIndexMap)
     {
         const FName& TabId = TabPair.Key;
