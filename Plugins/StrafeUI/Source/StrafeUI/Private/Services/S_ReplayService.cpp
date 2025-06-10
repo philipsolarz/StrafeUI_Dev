@@ -76,9 +76,9 @@ void US_ReplayService::PlayReplay(const FString& ReplayName, APlayerController* 
 
     UE_LOG(LogTemp, Log, TEXT("Playing replay: %s"), *ReplayName);
 
-    // Start playing the replay
-    // Note: In UE5, use the DemoNetDriver system
-    PC->PlayReplay(ReplayName, nullptr);
+    // Start playing the replay via console command
+    FString Command = FString::Printf(TEXT("demoplay %s"), *ReplayName);
+    PC->ConsoleCommand(Command);
 }
 
 void US_ReplayService::DeleteReplay(const FString& ReplayName, TFunction<void(bool)> OnComplete)

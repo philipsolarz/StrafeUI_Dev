@@ -20,6 +20,14 @@ void US_UI_MainMenuWidget::NativeOnInitialized()
     {
         Btn_Find->OnClicked().AddUObject(this, &US_UI_MainMenuWidget::HandleFindGameClicked);
     }
+    if (Btn_Leaderboards)
+    {
+        Btn_Leaderboards->OnClicked().AddUObject(this, &US_UI_MainMenuWidget::HandleLeaderboardsClicked);
+    }
+    if (Btn_Replays)
+    {
+        Btn_Replays->OnClicked().AddUObject(this, &US_UI_MainMenuWidget::HandleReplaysClicked);
+    }
     if (Btn_Settings)
     {
         Btn_Settings->OnClicked().AddUObject(this, &US_UI_MainMenuWidget::HandleSettingsClicked);
@@ -43,6 +51,22 @@ void US_UI_MainMenuWidget::HandleFindGameClicked()
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
         UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::FindGame);
+    }
+}
+
+void US_UI_MainMenuWidget::HandleLeaderboardsClicked()
+{
+    if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
+    {
+        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::Leaderboards);
+    }
+}
+
+void US_UI_MainMenuWidget::HandleReplaysClicked()
+{
+    if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
+    {
+        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::Replays);
     }
 }
 
