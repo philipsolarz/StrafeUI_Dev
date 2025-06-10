@@ -41,10 +41,10 @@ public:
 	FString ServerDescription = "Welcome to my server!";
 
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
-	bool bIsPrivate = false;
+	bool bIsLANMatch = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
-	bool bIsLANMatch = false;
+	bool bIsDedicatedServer = false;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Create Game")
 	int32 MaxPlayers = 8;

@@ -56,16 +56,16 @@ private:
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UCommonTextBlock> Txt_Ping;
 
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UProgressBar> Bar_ServerCapacity;
 
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UImage> Img_PrivateIcon;
 
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UImage> Img_LANIcon;
 
-    UPROPERTY(meta = (BindWidget))
+    UPROPERTY(meta = (BindWidgetOptional))
     TObjectPtr<UImage> Img_PingIcon;
 
     // Cached server data
