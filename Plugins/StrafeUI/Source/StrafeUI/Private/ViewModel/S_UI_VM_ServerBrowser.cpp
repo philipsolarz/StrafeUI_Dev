@@ -86,7 +86,7 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 	}
 
 	// Configure the search
-	SessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
+	SessionSearch->bIsLanQuery = bSearchLAN;
 	SessionSearch->MaxSearchResults = 10000;
 	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 
@@ -158,7 +158,7 @@ void US_UI_VM_ServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		// Process each found session
 		for (const FOnlineSessionSearchResult& SearchResult : SessionSearch->SearchResults)
 		{
-			TSharedPtr<US_UI_VM_ServerListEntry> NewEntry = MakeShareable(NewObject<US_UI_VM_ServerListEntry>());
+			US_UI_VM_ServerListEntry* NewEntry = NewObject<US_UI_VM_ServerListEntry>(this);
 
 			// Store the full search result for joining later
 			NewEntry->SessionSearchResult = SearchResult;
@@ -381,7 +381,7 @@ void US_UI_VM_ServerBrowser::UpdateFilteredServerList()
 	ServerList.Empty();
 
 	// Apply filters to the full list
-	for (const TSharedPtr<US_UI_VM_ServerListEntry>& Entry : AllFoundServers)
+	for (const TObjectPtr<US_UI_VM_ServerListEntry>& Entry : AllFoundServers)
 	{
 		if (PassesFilters(Entry))
 		{
@@ -393,9 +393,9 @@ void US_UI_VM_ServerBrowser::UpdateFilteredServerList()
 	BroadcastDataChanged();
 }
 
-bool US_UI_VM_ServerBrowser::PassesFilters(const TSharedPtr<US_UI_VM_ServerListEntry>& Entry) const
+bool US_UI_VM_ServerBrowser::PassesFilters(const TObjectPtr<US_UI_VM_ServerListEntry>& Entry) const
 {
-	if (!Entry.IsValid())
+	if (!Entry)
 	{
 		return false;
 	}

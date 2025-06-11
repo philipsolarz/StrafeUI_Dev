@@ -5,6 +5,7 @@
 #include "UI/S_UI_CollapsibleBox.h"
 #include "S_UI_Settings.h"
 #include "Components/ListView.h"
+#include "Components/CheckBox.h"
 #include "S_UI_Subsystem.h"
 #include "S_UI_Navigator.h"
 
@@ -38,6 +39,11 @@ void US_UI_FindGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
 void US_UI_FindGameWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
+
+    if (Chk_SearchLAN)
+    {
+        Chk_SearchLAN->OnCheckStateChanged.AddDynamic(this, &US_UI_FindGameWidget::HandleSearchLANChanged);
+    }
 
     //if (Btn_Refresh && ViewModel.IsValid())
     //{
@@ -91,7 +97,7 @@ void US_UI_FindGameWidget::OnServerListUpdated()
             // This is needed for the join functionality
             for (const auto& FoundServer : ViewModel->AllFoundServers)
             {
-                if (FoundServer.IsValid() &&
+                if (FoundServer &&
                     FoundServer->ServerInfo.ServerName.EqualTo(ServerInfo.ServerName) &&
                     FoundServer->ServerInfo.Ping == ServerInfo.Ping)
                 {
@@ -204,4 +210,12 @@ void US_UI_FindGameWidget::OnFiltersChanged()
 
     // Apply the filters
     ViewModel->ApplyFilters();
+}
+
+void US_UI_FindGameWidget::HandleSearchLANChanged(bool bIsChecked)
+{
+    if (ViewModel.IsValid())
+    {
+        ViewModel->bSearchLAN = bIsChecked;
+    }
 }

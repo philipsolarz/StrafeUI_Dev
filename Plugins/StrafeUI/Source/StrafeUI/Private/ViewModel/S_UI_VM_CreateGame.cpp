@@ -198,11 +198,11 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	SessionSettings->bIsLANMatch = bIsLANMatch;
 	SessionSettings->bIsDedicated = bIsDedicatedServer;
 	SessionSettings->bUsesPresence = !bIsDedicatedServer;
-	SessionSettings->bUseLobbiesIfAvailable = !bIsDedicatedServer;
+	//SessionSettings->bUseLobbiesIfAvailable = !bIsDedicatedServer;
 	SessionSettings->bAllowInvites = true;
 	SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
-	SessionSettings->BuildUniqueId = 1;
+	//SessionSettings->BuildUniqueId = 1;
 
 	// Custom settings - store all our game-specific data
 	SessionSettings->Set(SETTING_MAPNAME, SelectedMapName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
