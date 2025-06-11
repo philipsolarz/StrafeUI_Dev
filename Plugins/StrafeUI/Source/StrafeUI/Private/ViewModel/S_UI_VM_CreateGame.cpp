@@ -48,7 +48,76 @@ void US_UI_VM_CreateGame::Initialize(const US_UI_Settings* InSettings)
 
 void US_UI_VM_CreateGame::CreateGame()
 {
+	// Get the Session Interface
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (!OnlineSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No online subsystem found"));
+		return;
+	}
+
+	IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
+	if (!SessionInterface.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: Session interface is invalid"));
+		return;
+	}
+
+	// Check if a session already exists
+	if (SessionInterface->GetNamedSession(NAME_GameSession))
+	{
+		UE_LOG(LogTemp, Log, TEXT("Found an existing session. Destroying it before creating a new one."));
+
+		// Bind the completion delegate
+		DestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(
+			FOnDestroySessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnDestroySessionComplete)
+		);
+
+		// Destroy the existing session
+		if (!SessionInterface->DestroySession(NAME_GameSession))
+		{
+			// If the call fails, clear the delegate and log an error
+			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
+			UE_LOG(LogTemp, Error, TEXT("Failed to submit session destroy request."));
+		}
+	}
+	else
+	{
+		// If no session exists, proceed directly to creation
+		CreateNewSession();
+	}
+}
+
+void US_UI_VM_CreateGame::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	// Clean up the delegate
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
+		if (SessionInterface.IsValid())
+		{
+			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
+		}
+	}
+
+	if (bWasSuccessful)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Successfully destroyed previous session."));
+		// Now that the old session is gone, create the new one.
+		CreateNewSession();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Failed to destroy previous session."));
+	}
+}
+
+void US_UI_VM_CreateGame::CreateNewSession()
+{
 	if (!UISettings.IsValid()) return;
+
+	// This function now contains the logic that was originally in CreateGame()
 
 	// Find the full GameModeInfo struct from the selected display name
 	const FStrafeGameModeInfo* SelectedGameModeInfo = UISettings->AvailableGameModes.FindByPredicate(
@@ -84,7 +153,7 @@ void US_UI_VM_CreateGame::CreateGame()
 		return;
 	}
 
-	CachedMapAssetPath = SelectedMapAsset->ToString();
+	CachedMapAssetPath = (*SelectedMapAsset).ToSoftObjectPath().GetLongPackageName();
 
 	// Get the Online Subsystem
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
@@ -101,6 +170,8 @@ void US_UI_VM_CreateGame::CreateGame()
 		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: Session interface is invalid"));
 		return;
 	}
+
+	// ... (The rest of the original CreateGame function, from creating SessionSettings onward)
 
 	// Get the local player
 	UWorld* World = GetWorld();
@@ -128,6 +199,7 @@ void US_UI_VM_CreateGame::CreateGame()
 	SessionSettings->bIsLANMatch = bIsLANMatch;
 	SessionSettings->bIsDedicated = bIsDedicatedServer;
 	SessionSettings->bUsesPresence = !bIsDedicatedServer;
+	SessionSettings->bUseLobbiesIfAvailable = !bIsDedicatedServer;
 	SessionSettings->bAllowInvites = true;
 	SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
