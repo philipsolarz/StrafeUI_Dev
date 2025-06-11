@@ -12,14 +12,17 @@
 #include "UI/S_UI_RootWidget.h"
 #include "UI/S_UI_BaseScreenWidget.h"
 #include "Widgets/CommonActivatableWidgetContainer.h"
+#include "S_UI_PlayerController.h"
 
-void US_UI_InputController::Initialize(US_UI_Subsystem* InSubsystem, UEnhancedInputComponent* InputComponent, const US_UI_Settings* Settings)
+void US_UI_InputController::Initialize(US_UI_Subsystem* InSubsystem, UEnhancedInputComponent* InputComponent, const US_UI_Settings* Settings, AS_UI_PlayerController* InPlayerController)
 {
 	check(InSubsystem);
 	check(InputComponent);
 	check(Settings);
+	check(InPlayerController);
 
 	UISubsystem = InSubsystem;
+	OwningPlayerController = InPlayerController;
 
 	// Asynchronously load the input actions.
 	// This prevents hitching the game thread while waiting for assets to load.
@@ -70,10 +73,16 @@ void US_UI_InputController::OnNavigate(const FInputActionValue& Value)
 	const FVector2D NavDirection = Value.Get<FVector2D>();
 	UE_LOG(LogTemp, Verbose, TEXT("InputController: Navigate triggered with value: %s"), *NavDirection.ToString());
 
-	if (UISubsystem && UISubsystem->GetRootWidget())
+	AS_UI_PlayerController* PC = OwningPlayerController.Get();
+	if (!PC || !UISubsystem)
+	{
+		return;
+	}
+
+	if (US_UI_RootWidget* RootWidget = UISubsystem->GetRootWidget(PC))
 	{
 		// Navigation should now be routed to the active widget in the *content* stack
-		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetContentStack()->GetActiveWidget()))
+		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(RootWidget->GetContentStack()->GetActiveWidget()))
 		{
 			ActiveWidget->HandleNavigation(NavDirection);
 		}
@@ -84,9 +93,15 @@ void US_UI_InputController::OnAccept(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Verbose, TEXT("InputController: Accept triggered."));
 
-	if (UISubsystem && UISubsystem->GetRootWidget())
+	AS_UI_PlayerController* PC = OwningPlayerController.Get();
+	if (!PC || !UISubsystem)
 	{
-		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(UISubsystem->GetRootWidget()->GetContentStack()->GetActiveWidget()))
+		return;
+	}
+
+	if (US_UI_RootWidget* RootWidget = UISubsystem->GetRootWidget(PC))
+	{
+		if (US_UI_BaseScreenWidget* ActiveWidget = Cast<US_UI_BaseScreenWidget>(RootWidget->GetContentStack()->GetActiveWidget()))
 		{
 			ActiveWidget->HandleAccept();
 		}
@@ -97,9 +112,14 @@ void US_UI_InputController::OnBack(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Verbose, TEXT("InputController: Back triggered."));
 
-	if (UISubsystem && UISubsystem->GetNavigator())
+	AS_UI_PlayerController* PC = OwningPlayerController.Get();
+	if (!PC || !UISubsystem)
 	{
-		// <<< Corrected call to use the Navigator
-		UISubsystem->GetNavigator()->PopContentScreen();
+		return;
+	}
+
+	if (US_UI_Navigator* Navigator = UISubsystem->GetNavigator(PC))
+	{
+		Navigator->PopContentScreen();
 	}
 }

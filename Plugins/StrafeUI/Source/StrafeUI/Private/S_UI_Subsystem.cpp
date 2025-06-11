@@ -17,9 +17,8 @@ void US_UI_Subsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
 
-    // Create the manager instances.
+    // Create the shared manager instances.
     AssetManager = NewObject<US_UI_AssetManager>(this);
-    Navigator = NewObject<US_UI_Navigator>(this);
     SessionManager = NewObject<US_UI_OnlineSessionManager>(this);
 
     // Initialize the session manager
@@ -37,11 +36,16 @@ void US_UI_Subsystem::Deinitialize()
         SessionManager = nullptr;
     }
 
-    if (UIRootWidget)
+    // Clean up all player UI states
+    for (auto& PlayerUIStatePair : PlayerUIStates)
     {
-        UIRootWidget->RemoveFromParent();
-        UIRootWidget = nullptr;
+        FPlayerUIState& UIState = PlayerUIStatePair.Value;
+        if (UIState.UIRootWidget)
+        {
+            UIState.UIRootWidget->RemoveFromParent();
+        }
     }
+    PlayerUIStates.Empty();
 
     UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem Deinitialized"));
     Super::Deinitialize();
@@ -49,85 +53,142 @@ void US_UI_Subsystem::Deinitialize()
 
 void US_UI_Subsystem::InitializeUIForPlayer(AS_UI_PlayerController* PlayerController)
 {
-    if (!PlayerController || UIRootWidget)
+    if (!PlayerController)
     {
         return;
     }
 
-    InitializingPlayer = PlayerController;
-    const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
+    // Check if this player is already initialized or initializing
+    FPlayerUIState* ExistingState = GetPlayerUIState(PlayerController);
+    if (ExistingState && ExistingState->bIsInitialized)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("S_UI_Subsystem: Player %d already has UI initialized"), GetLocalPlayerIndex(PlayerController));
+        return;
+    }
 
+    // Check if already initializing
+    for (const TWeakObjectPtr<AS_UI_PlayerController>& InitializingPlayer : InitializingPlayers)
+    {
+        if (InitializingPlayer.IsValid() && InitializingPlayer.Get() == PlayerController)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("S_UI_Subsystem: Player %d is already initializing"), GetLocalPlayerIndex(PlayerController));
+            return;
+        }
+    }
+
+    // Add to initializing list
+    InitializingPlayers.Add(PlayerController);
+
+    const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
     if (!Settings)
     {
         UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: Cannot find StrafeUISettings!"));
+        InitializingPlayers.RemoveSingle(PlayerController);
         return;
     }
 
-    // Initialize asset manager and bind completion callback.
-    AssetManager->Initialize(Settings);
-    AssetManager->OnAssetsLoaded.BindUObject(this, &US_UI_Subsystem::FinalizeUIInitialization);
-    AssetManager->StartAssetsLoading();
+    // Initialize asset manager if not already done
+    if (!AssetManager->AreAssetsLoaded())
+    {
+        AssetManager->Initialize(Settings);
+
+        // Bind completion callback for all initializing players
+        AssetManager->OnAssetsLoaded.BindLambda([this]()
+            {
+                // Process all waiting players
+                TArray<TWeakObjectPtr<AS_UI_PlayerController>> PlayersToInitialize = InitializingPlayers;
+                for (const TWeakObjectPtr<AS_UI_PlayerController>& WeakPC : PlayersToInitialize)
+                {
+                    if (AS_UI_PlayerController* PC = WeakPC.Get())
+                    {
+                        FinalizeUIInitialization(PC);
+                    }
+                }
+            });
+
+        AssetManager->StartAssetsLoading();
+    }
+    else
+    {
+        // Assets already loaded, finalize immediately
+        FinalizeUIInitialization(PlayerController);
+    }
 }
 
-void US_UI_Subsystem::FinalizeUIInitialization()
+void US_UI_Subsystem::FinalizeUIInitialization(AS_UI_PlayerController* PlayerController)
 {
-    UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Finalizing UI setup..."));
+    UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Finalizing UI setup for Player %d..."), GetLocalPlayerIndex(PlayerController));
 
-    if (!InitializingPlayer.IsValid())
+    if (!PlayerController)
     {
-        UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: PlayerController became invalid during asset loading. Aborting UI setup."));
         return;
     }
 
-    AS_UI_PlayerController* PlayerController = InitializingPlayer.Get();
+    // Remove from initializing list
+    InitializingPlayers.RemoveSingle(PlayerController);
+
+    // Get or create UI state for this player
+    FPlayerUIState* UIState = GetOrCreatePlayerUIState(PlayerController);
+    if (!UIState)
+    {
+        UE_LOG(LogTemp, Error, TEXT("S_UI_Subsystem: Failed to create UI state for player"));
+        return;
+    }
+
     const US_UI_Settings* Settings = GetDefault<US_UI_Settings>();
 
     // --- Initialize Modal Stack ---
-    if (!ModalStack)
+    if (!UIState->ModalStack)
     {
         if (TSubclassOf<US_UI_ModalStack> LoadedModalStackClass = TSubclassOf<US_UI_ModalStack>(Settings->ModalStackClass.Get()))
         {
-            ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
-            ModalStack->Initialize(this, Settings->ModalWidgetClass);
+            UIState->ModalStack = NewObject<US_UI_ModalStack>(this, LoadedModalStackClass);
+            UIState->ModalStack->Initialize(this, Settings->ModalWidgetClass);
         }
     }
 
     // --- Initialize Input Controller ---
     if (TSubclassOf<US_UI_InputController> LoadedInputControllerClass = TSubclassOf<US_UI_InputController>(Settings->InputControllerClass.Get()))
     {
-        InputController = NewObject<US_UI_InputController>(this, LoadedInputControllerClass);
+        UIState->InputController = NewObject<US_UI_InputController>(this, LoadedInputControllerClass);
         if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
         {
-            InputController->Initialize(this, EIC, Settings);
+            UIState->InputController->Initialize(this, EIC, Settings);
         }
     }
 
     // --- Create Root Widget ---
     if (const TSubclassOf<US_UI_RootWidget> RootClass = TSubclassOf<US_UI_RootWidget>(Settings->RootWidgetClass.Get()))
     {
-        UIRootWidget = CreateWidget<US_UI_RootWidget>(PlayerController, RootClass);
-        if (UIRootWidget)
+        UIState->UIRootWidget = CreateWidget<US_UI_RootWidget>(PlayerController, RootClass);
+        if (UIState->UIRootWidget)
         {
-            UIRootWidget->AddToViewport();
+            UIState->UIRootWidget->AddToViewport();
 
             // Create and add the persistent Main Menu widget
             if (const TSubclassOf<US_UI_MainMenuWidget> MainMenuClass = TSubclassOf<US_UI_MainMenuWidget>(Settings->MainMenuWidgetClass.Get()))
             {
                 US_UI_MainMenuWidget* MainMenuWidget = CreateWidget<US_UI_MainMenuWidget>(PlayerController, MainMenuClass);
-                if (MainMenuWidget && UIRootWidget->GetMainMenuSlot())
+                if (MainMenuWidget && UIState->UIRootWidget->GetMainMenuSlot())
                 {
-                    UIRootWidget->GetMainMenuSlot()->AddChild(MainMenuWidget);
+                    UIState->UIRootWidget->GetMainMenuSlot()->AddChild(MainMenuWidget);
                 }
             }
         }
     }
 
     // --- Initialize Navigator ---
-    Navigator->Initialize(UIRootWidget, AssetManager);
+    UIState->Navigator = NewObject<US_UI_Navigator>(this);
+    UIState->Navigator->Initialize(UIState->UIRootWidget, AssetManager);
+
+    // Mark as initialized
+    UIState->bIsInitialized = true;
+    UIState->PlayerController = PlayerController;
+
+    UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: UI initialized for Player %d"), GetLocalPlayerIndex(PlayerController));
 }
 
-
-void US_UI_Subsystem::RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback)
+void US_UI_Subsystem::RequestModal(AS_UI_PlayerController* PlayerController, const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback)
 {
     if (!AssetManager || !AssetManager->AreAssetsLoaded())
     {
@@ -135,13 +196,94 @@ void US_UI_Subsystem::RequestModal(const F_UIModalPayload& Payload, const FOnMod
         return;
     }
 
-    if (ModalStack)
+    FPlayerUIState* UIState = GetPlayerUIState(PlayerController);
+    if (!UIState || !UIState->ModalStack)
     {
-        ModalStack->QueueModal(Payload, OnDismissedCallback);
-        UE_LOG(LogTemp, Verbose, TEXT("Modal requested with message: %s"), *Payload.Message.ToString());
+        UE_LOG(LogTemp, Error, TEXT("RequestModal failed: No UI state or ModalStack for player!"));
+        return;
     }
-    else
+
+    UIState->ModalStack->QueueModal(Payload, OnDismissedCallback);
+    UE_LOG(LogTemp, Verbose, TEXT("Modal requested for Player %d with message: %s"),
+        GetLocalPlayerIndex(PlayerController), *Payload.Message.ToString());
+}
+
+US_UI_RootWidget* US_UI_Subsystem::GetRootWidget(AS_UI_PlayerController* PlayerController) const
+{
+    const FPlayerUIState* UIState = GetPlayerUIState(PlayerController);
+    return UIState ? UIState->UIRootWidget : nullptr;
+}
+
+US_UI_Navigator* US_UI_Subsystem::GetNavigator(AS_UI_PlayerController* PlayerController) const
+{
+    const FPlayerUIState* UIState = GetPlayerUIState(PlayerController);
+    return UIState ? UIState->Navigator : nullptr;
+}
+
+int32 US_UI_Subsystem::GetLocalPlayerIndex(AS_UI_PlayerController* PlayerController) const
+{
+    if (!PlayerController)
     {
-        UE_LOG(LogTemp, Error, TEXT("RequestModal failed: ModalStack is not initialized!"));
+        return -1;
     }
+
+    if (const ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
+    {
+        return LocalPlayer->GetControllerId();
+    }
+
+    return -1;
+}
+
+void US_UI_Subsystem::CleanupPlayerUI(AS_UI_PlayerController* PlayerController)
+{
+    if (!PlayerController)
+    {
+        return;
+    }
+
+    // Remove from initializing list if present
+    InitializingPlayers.RemoveSingle(PlayerController);
+
+    // Clean up UI state
+    FPlayerUIState* UIState = GetPlayerUIState(PlayerController);
+    if (UIState)
+    {
+        if (UIState->UIRootWidget)
+        {
+            UIState->UIRootWidget->RemoveFromParent();
+        }
+        PlayerUIStates.Remove(PlayerController);
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("S_UI_Subsystem: Cleaned up UI for Player %d"), GetLocalPlayerIndex(PlayerController));
+}
+
+FPlayerUIState* US_UI_Subsystem::GetOrCreatePlayerUIState(AS_UI_PlayerController* PlayerController)
+{
+    if (!PlayerController)
+    {
+        return nullptr;
+    }
+
+    FPlayerUIState* ExistingState = PlayerUIStates.Find(PlayerController);
+    if (ExistingState)
+    {
+        return ExistingState;
+    }
+
+    // Create new state
+    FPlayerUIState& NewState = PlayerUIStates.Add(PlayerController);
+    NewState.PlayerController = PlayerController;
+    return &NewState;
+}
+
+FPlayerUIState* US_UI_Subsystem::GetPlayerUIState(AS_UI_PlayerController* PlayerController) const
+{
+    if (!PlayerController)
+    {
+        return nullptr;
+    }
+
+    return const_cast<TMap<TObjectPtr<AS_UI_PlayerController>, FPlayerUIState>&>(PlayerUIStates).Find(PlayerController);
 }

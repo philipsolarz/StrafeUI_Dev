@@ -10,6 +10,7 @@
 
 class US_UI_Settings;
 struct FStrafeGameModeInfo;
+class AS_UI_PlayerController;
 
 UCLASS(BlueprintType)
 class STRAFEUI_API US_UI_VM_CreateGame : public US_UI_ViewModelBase
@@ -18,6 +19,9 @@ class STRAFEUI_API US_UI_VM_CreateGame : public US_UI_ViewModelBase
 
 public:
 	void Initialize(const US_UI_Settings* InSettings);
+
+	/** Sets the owning player controller for this view model. */
+	void SetOwningPlayer(AS_UI_PlayerController* InPlayerController) { OwningPlayerController = InPlayerController; }
 
 	UFUNCTION(BlueprintCallable, Category = "Create Game")
 	void CreateGame();
@@ -87,6 +91,9 @@ private:
 	/** Contains the actual logic to create the session settings and trigger the creation. */
 	void CreateNewSession();
 
+	/** Gets a unique session name for this player. */
+	FName GetPlayerSessionName() const;
+
 	/** Stores the delegate handle for cleanup */
 	FDelegateHandle CreateSessionCompleteDelegateHandle;
 
@@ -98,6 +105,10 @@ private:
 
 	UPROPERTY()
 	TWeakObjectPtr<const US_UI_Settings> UISettings;
+
+	/** The player controller that owns this view model. */
+	UPROPERTY()
+	TWeakObjectPtr<AS_UI_PlayerController> OwningPlayerController;
 
 	/** Cached game mode class for session creation */
 	UClass* CachedGameModeClass = nullptr;

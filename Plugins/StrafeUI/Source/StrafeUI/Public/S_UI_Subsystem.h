@@ -14,8 +14,34 @@ class AS_UI_PlayerController;
 class US_UI_OnlineSessionManager;
 
 /**
+ * Container for per-player UI state
+ */
+USTRUCT()
+struct FPlayerUIState
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TObjectPtr<US_UI_RootWidget> UIRootWidget = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<US_UI_Navigator> Navigator = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<US_UI_InputController> InputController = nullptr;
+
+    UPROPERTY()
+    TObjectPtr<US_UI_ModalStack> ModalStack = nullptr;
+
+    UPROPERTY()
+    TWeakObjectPtr<AS_UI_PlayerController> PlayerController = nullptr;
+
+    bool bIsInitialized = false;
+};
+
+/**
  * The central orchestrator for the StrafeUI plugin.
- * Initializes and provides access to specialized UI managers.
+ * Now supports multiple local players with separate UI instances.
  */
 UCLASS()
 class STRAFEUI_API US_UI_Subsystem : public UGameInstanceSubsystem
@@ -29,54 +55,55 @@ public:
     /** Kicks off the full UI initialization for a given player. */
     void InitializeUIForPlayer(AS_UI_PlayerController* PlayerController);
 
-    /** Requests a modal dialog to be displayed. */
-    void RequestModal(const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
+    /** Requests a modal dialog to be displayed for a specific player. */
+    void RequestModal(AS_UI_PlayerController* PlayerController, const F_UIModalPayload& Payload, const FOnModalDismissedSignature& OnDismissedCallback);
 
-    /** Gets the root UI widget. */
+    /** Gets the root UI widget for a specific player. */
     UFUNCTION(BlueprintPure, Category = "UI Subsystem")
-    US_UI_RootWidget* GetRootWidget() const { return UIRootWidget; }
+    US_UI_RootWidget* GetRootWidget(AS_UI_PlayerController* PlayerController) const;
 
-    /** Gets the screen navigation manager. */
+    /** Gets the screen navigation manager for a specific player. */
     UFUNCTION(BlueprintPure, Category = "UI Subsystem")
-    US_UI_Navigator* GetNavigator() const { return Navigator; }
+    US_UI_Navigator* GetNavigator(AS_UI_PlayerController* PlayerController) const;
 
-    /** Gets the UI asset loading manager. */
+    /** Gets the UI asset loading manager (shared). */
     UFUNCTION(BlueprintPure, Category = "UI Subsystem")
     US_UI_AssetManager* GetAssetManager() const { return AssetManager; }
 
-    /** Gets the online session manager. */
+    /** Gets the online session manager (shared). */
     UFUNCTION(BlueprintPure, Category = "UI Subsystem")
     US_UI_OnlineSessionManager* GetSessionManager() const { return SessionManager; }
 
-private:
-    /** Finalizes UI setup after all assets have been loaded. */
-    void FinalizeUIInitialization();
+    /** Gets the local player index for a player controller. */
+    UFUNCTION(BlueprintPure, Category = "UI Subsystem")
+    int32 GetLocalPlayerIndex(AS_UI_PlayerController* PlayerController) const;
 
-    /** Manager for loading UI assets. */
+    /** Cleans up UI for a specific player. */
+    void CleanupPlayerUI(AS_UI_PlayerController* PlayerController);
+
+private:
+    /** Finalizes UI setup after all assets have been loaded for a specific player. */
+    void FinalizeUIInitialization(AS_UI_PlayerController* PlayerController);
+
+    /** Gets or creates the UI state for a player. */
+    FPlayerUIState* GetOrCreatePlayerUIState(AS_UI_PlayerController* PlayerController);
+
+    /** Gets the UI state for a player. */
+    FPlayerUIState* GetPlayerUIState(AS_UI_PlayerController* PlayerController) const;
+
+    /** Manager for loading UI assets (shared across all players). */
     UPROPERTY()
     TObjectPtr<US_UI_AssetManager> AssetManager;
 
-    /** Manager for screen navigation. */
-    UPROPERTY()
-    TObjectPtr<US_UI_Navigator> Navigator;
-
-    /** Manager for UI input. */
-    UPROPERTY()
-    TObjectPtr<US_UI_InputController> InputController;
-
-    /** Manager for the modal dialog queue. */
-    UPROPERTY()
-    TObjectPtr<US_UI_ModalStack> ModalStack;
-
-    /** Manager for online sessions. */
+    /** Manager for online sessions (shared across all players). */
     UPROPERTY()
     TObjectPtr<US_UI_OnlineSessionManager> SessionManager;
 
-    /** The root widget of the UI. */
+    /** Map of player controllers to their UI state. */
     UPROPERTY()
-    TObjectPtr<US_UI_RootWidget> UIRootWidget;
+    TMap<TObjectPtr<AS_UI_PlayerController>, FPlayerUIState> PlayerUIStates;
 
-    /** A weak pointer to the player controller that is initializing the UI. */
+    /** Tracks which players are currently initializing. */
     UPROPERTY()
-    TWeakObjectPtr<AS_UI_PlayerController> InitializingPlayer;
+    TArray<TWeakObjectPtr<AS_UI_PlayerController>> InitializingPlayers;
 };

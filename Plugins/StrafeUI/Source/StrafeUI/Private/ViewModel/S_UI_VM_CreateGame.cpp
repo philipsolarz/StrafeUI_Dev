@@ -3,6 +3,7 @@
 #include "ViewModel/S_UI_VM_CreateGame.h"
 #include "S_UI_Settings.h"
 #include "S_UI_Subsystem.h"
+#include "S_UI_PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
@@ -21,6 +22,7 @@
 #define SETTING_SCORELIMIT FName(TEXT("SCORELIMIT"))
 #define SETTING_RESPAWNTIME FName(TEXT("RESPAWNTIME"))
 #define SETTING_GAMETAG FName(TEXT("GAMETAG"))
+#define SETTING_HOSTPLAYERINDEX FName(TEXT("HOSTPLAYERINDEX"))
 
 void US_UI_VM_CreateGame::Initialize(const US_UI_Settings* InSettings)
 {
@@ -47,6 +49,20 @@ void US_UI_VM_CreateGame::Initialize(const US_UI_Settings* InSettings)
 	}
 }
 
+FName US_UI_VM_CreateGame::GetPlayerSessionName() const
+{
+	// Create a unique session name for each local player
+	if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+	{
+		if (const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer())
+		{
+			int32 ControllerId = LocalPlayer->GetControllerId();
+			return FName(*FString::Printf(TEXT("GameSession_Player%d"), ControllerId));
+		}
+	}
+	return NAME_GameSession;
+}
+
 void US_UI_VM_CreateGame::CreateGame()
 {
 	// Get the Session Interface
@@ -64,18 +80,20 @@ void US_UI_VM_CreateGame::CreateGame()
 		return;
 	}
 
-	// Check if a session already exists
-	if (SessionInterface->GetNamedSession(NAME_GameSession))
+	FName SessionName = GetPlayerSessionName();
+
+	// Check if this player already has a session
+	if (SessionInterface->GetNamedSession(SessionName))
 	{
-		UE_LOG(LogTemp, Log, TEXT("Found an existing session. Destroying it before creating a new one."));
+		UE_LOG(LogTemp, Log, TEXT("Player %s has an existing session. Destroying it before creating a new one."), *SessionName.ToString());
 
 		// Bind the completion delegate
 		DestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(
 			FOnDestroySessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnDestroySessionComplete)
 		);
 
-		// Destroy the existing session
-		if (!SessionInterface->DestroySession(NAME_GameSession))
+		// Destroy this player's existing session
+		if (!SessionInterface->DestroySession(SessionName))
 		{
 			// If the call fails, clear the delegate and log an error
 			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
@@ -84,7 +102,42 @@ void US_UI_VM_CreateGame::CreateGame()
 	}
 	else
 	{
-		// If no session exists, proceed directly to creation
+		// Check if ANY player is already hosting
+		TArray<FName> AllSessionNames;
+		AllSessionNames.Add(NAME_GameSession);
+		for (int32 i = 0; i < 4; ++i) // Support up to 4 local players
+		{
+			AllSessionNames.Add(FName(*FString::Printf(TEXT("GameSession_Player%d"), i)));
+		}
+
+		bool bAnotherPlayerHosting = false;
+		for (const FName& ExistingSessionName : AllSessionNames)
+		{
+			if (SessionInterface->GetNamedSession(ExistingSessionName))
+			{
+				bAnotherPlayerHosting = true;
+				UE_LOG(LogTemp, Warning, TEXT("Another player is already hosting a session: %s"), *ExistingSessionName.ToString());
+				break;
+			}
+		}
+
+		if (bAnotherPlayerHosting)
+		{
+			// Show error modal
+			if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+			{
+				if (US_UI_Subsystem* UISubsystem = PC->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+				{
+					F_UIModalPayload Payload;
+					Payload.Message = FText::FromString(TEXT("Another player is already hosting a game. Only one player can host at a time."));
+					Payload.ModalType = E_UIModalType::OK;
+					UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
+				}
+			}
+			return;
+		}
+
+		// No existing session, proceed directly to creation
 		CreateNewSession();
 	}
 }
@@ -118,7 +171,12 @@ void US_UI_VM_CreateGame::CreateNewSession()
 {
 	if (!UISettings.IsValid()) return;
 
-	// This function now contains the logic that was originally in CreateGame()
+	AS_UI_PlayerController* PC = OwningPlayerController.Get();
+	if (!PC)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No owning player controller"));
+		return;
+	}
 
 	// Find the full GameModeInfo struct from the selected display name
 	const FStrafeGameModeInfo* SelectedGameModeInfo = UISettings->AvailableGameModes.FindByPredicate(
@@ -180,10 +238,9 @@ void US_UI_VM_CreateGame::CreateNewSession()
 		return;
 	}
 
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->GetLocalPlayer())
+	if (!PC->GetLocalPlayer())
 	{
-		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No local player controller"));
+		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No local player"));
 		return;
 	}
 
@@ -216,13 +273,21 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	SessionSettings->Set(SETTING_RESPAWNTIME, RespawnTime, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	SessionSettings->Set(SETTING_GAMETAG, FString("StrafeGame"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
+	// Store which player is hosting
+	int32 HostPlayerIndex = PC->GetLocalPlayer()->GetControllerId();
+	SessionSettings->Set(SETTING_HOSTPLAYERINDEX, HostPlayerIndex, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
 	// If password protected, store the password (Note: In production, you'd want to handle this more securely)
 	if (!Password.IsEmpty())
 	{
 		SessionSettings->Set(FName(TEXT("PASSWORD")), Password, EOnlineDataAdvertisementType::DontAdvertise);
 	}
 
+	FName SessionName = GetPlayerSessionName();
+
 	UE_LOG(LogTemp, Log, TEXT("--- Creating Game Session with Settings ---"));
+	UE_LOG(LogTemp, Log, TEXT("Session Name: %s"), *SessionName.ToString());
+	UE_LOG(LogTemp, Log, TEXT("Host Player Index: %d"), HostPlayerIndex);
 	UE_LOG(LogTemp, Log, TEXT("Game Name: %s"), *GameName);
 	UE_LOG(LogTemp, Log, TEXT("Map Name: %s"), *SelectedMapName);
 	UE_LOG(LogTemp, Log, TEXT("Game Mode: %s"), *SelectedGameModeName);
@@ -235,7 +300,6 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	UE_LOG(LogTemp, Log, TEXT("Game Tag: %s"), TEXT("StrafeGame"));
 	UE_LOG(LogTemp, Log, TEXT("-----------------------------------------"));
 
-
 	// Bind the completion delegate
 	CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(
 		FOnCreateSessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnCreateSessionComplete)
@@ -243,7 +307,7 @@ void US_UI_VM_CreateGame::CreateNewSession()
 
 	// Create the session
 	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-	if (!SessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings))
+	if (!SessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), SessionName, *SessionSettings))
 	{
 		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: Failed to create session"));
 
@@ -251,15 +315,12 @@ void US_UI_VM_CreateGame::CreateNewSession()
 		SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
 
 		// Show error modal
-		if (UWorld* WorldContext = GetWorld())
+		if (US_UI_Subsystem* UISubsystem = PC->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
 		{
-			if (US_UI_Subsystem* UISubsystem = WorldContext->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-			{
-				F_UIModalPayload Payload;
-				Payload.Message = FText::FromString(TEXT("Failed to create game session. Please try again."));
-				Payload.ModalType = E_UIModalType::OK;
-				UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-			}
+			F_UIModalPayload Payload;
+			Payload.Message = FText::FromString(TEXT("Failed to create game session. Please try again."));
+			Payload.ModalType = E_UIModalType::OK;
+			UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
 		}
 	}
 }
@@ -296,14 +357,14 @@ void US_UI_VM_CreateGame::OnCreateSessionComplete(FName SessionName, bool bWasSu
 				UE_LOG(LogTemp, Error, TEXT("Failed to create session"));
 
 				// Show error modal
-				if (UWorld* World = GetWorld())
+				if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
 				{
-					if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+					if (US_UI_Subsystem* UISubsystem = PC->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
 					{
 						F_UIModalPayload Payload;
 						Payload.Message = FText::FromString(TEXT("Failed to create game session. Please check your connection and try again."));
 						Payload.ModalType = E_UIModalType::OK;
-						UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+						UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
 					}
 				}
 			}
@@ -333,7 +394,13 @@ void US_UI_VM_CreateGame::OnStartSessionComplete(FName SessionName, bool bWasSuc
 		if (World && CachedGameModeClass)
 		{
 			FString TravelURL = FString::Printf(TEXT("%s?listen?game=%s"), *CachedMapAssetPath, *CachedGameModeClass->GetPathName());
-			World->ServerTravel(TravelURL);
+
+			// Use the owning player's controller to ensure the correct player travels
+			if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+			{
+				// Only the host player should use ServerTravel
+				World->ServerTravel(TravelURL);
+			}
 		}
 	}
 	else

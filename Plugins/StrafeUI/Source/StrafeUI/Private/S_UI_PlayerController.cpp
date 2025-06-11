@@ -27,19 +27,34 @@ void AS_UI_PlayerController::BeginPlay()
 		}
 	}
 
-	SetShowMouseCursor(true);
-	FInputModeUIOnly InputMode;
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	SetInputMode(InputMode);
+	// Only set these for the primary player to avoid conflicts
+	if (GetLocalPlayer() && GetLocalPlayer()->GetControllerId() == 0)
+	{
+		SetShowMouseCursor(true);
+		FInputModeUIOnly InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		SetInputMode(InputMode);
+	}
 }
 
 void AS_UI_PlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// When this PlayerController is destroyed (e.g., when traveling to a new level),
-	// we must clean up the input mode to ensure the next PlayerController has control.
-	FInputModeGameOnly InputMode;
-	SetInputMode(InputMode);
-	SetShowMouseCursor(false);
+	// Clean up this player's UI
+	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	{
+		if (US_UI_Subsystem* UISubsystem = LocalPlayer->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+		{
+			UISubsystem->CleanupPlayerUI(this);
+		}
+	}
+
+	// Only reset input mode for primary player
+	if (GetLocalPlayer() && GetLocalPlayer()->GetControllerId() == 0)
+	{
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		SetShowMouseCursor(false);
+	}
 
 	Super::EndPlay(EndPlayReason);
 }

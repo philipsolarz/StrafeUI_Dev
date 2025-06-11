@@ -12,6 +12,7 @@ class US_UI_Subsystem;
 class UEnhancedInputComponent;
 class UInputAction;
 class US_UI_Settings;
+class AS_UI_PlayerController;
 struct FInputActionValue;
 
 /**
@@ -32,8 +33,9 @@ public:
 	 * @param InSubsystem The owner UI subsystem.
 	 * @param InputComponent The Enhanced Input component to bind actions to.
 	 * @param Settings The settings object containing the Input Action assets.
+	 * @param InPlayerController The player controller that owns this input.
 	 */
-	void Initialize(US_UI_Subsystem* InSubsystem, UEnhancedInputComponent* InputComponent, const US_UI_Settings* Settings);
+	void Initialize(US_UI_Subsystem* InSubsystem, UEnhancedInputComponent* InputComponent, const US_UI_Settings* Settings, AS_UI_PlayerController* InPlayerController);
 
 private:
 	/** Handler for the Navigate input action. */
@@ -48,6 +50,10 @@ private:
 	/** Cached pointer to the UI Subsystem. */
 	UPROPERTY()
 	TObjectPtr<US_UI_Subsystem> UISubsystem;
+
+	/** The player controller that owns this input controller. */
+	UPROPERTY()
+	TWeakObjectPtr<AS_UI_PlayerController> OwningPlayerController;
 
 	/** Handle to the asynchronous loading of input actions. */
 	TSharedPtr<FStreamableHandle> InputActionsHandle;
