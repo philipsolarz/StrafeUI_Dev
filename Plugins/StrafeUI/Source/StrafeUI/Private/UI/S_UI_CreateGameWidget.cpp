@@ -11,6 +11,7 @@
 #include "S_UI_Settings.h"
 #include "UI/S_UI_CollapsibleBox.h"
 #include "Groups/CommonButtonGroupBase.h"
+#include "S_UI_PlayerController.h"
 
 US_UI_ViewModelBase* US_UI_CreateGameWidget::CreateViewModel()
 {
@@ -27,6 +28,12 @@ void US_UI_CreateGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
         if (InCreateGameViewModel)
         {
             ViewModel = InCreateGameViewModel;
+
+            // Set the owning player controller
+            if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+            {
+                ViewModel->SetOwningPlayer(PC);
+            }
 
             // Now that the viewmodel is set, bind to data changes for dynamic updates.
             ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_CreateGameWidget::OnViewModelDataChanged);

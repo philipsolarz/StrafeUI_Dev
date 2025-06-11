@@ -9,6 +9,7 @@
 #include "S_UI_Settings.h"
 #include "ViewModel/S_UI_VM_Settings.h"
 #include "Widgets/CommonActivatableWidgetContainer.h"
+#include "S_UI_PlayerController.h"
 
 US_UI_ViewModelBase* US_UI_SettingsWidget::CreateViewModel()
 {
@@ -178,6 +179,12 @@ void US_UI_SettingsWidget::HandleBackClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
+        AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer());
+        if (!PC)
+        {
+            return;
+        }
+
         bool bHasUnsavedChanges = false;
         for (US_UI_SettingsTabBase* Tab : SettingsTabs)
         {
@@ -194,15 +201,18 @@ void US_UI_SettingsWidget::HandleBackClicked()
             Payload.Message = FText::FromString(TEXT("You have unsaved changes. Do you want to save before leaving?"));
             Payload.ModalType = E_UIModalType::YesNo;
 
-            UISubsystem->RequestModal(Payload, FOnModalDismissedSignature::CreateLambda([this, UISubsystem](bool bConfirmed)
+            UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature::CreateLambda([this, UISubsystem, PC](bool bConfirmed)
                 {
-                    if (bConfirmed) HandleApplyClicked();
-                    UISubsystem->GetNavigator()->PopContentScreen();
+                    if (bConfirmed)
+                    {
+                        HandleApplyClicked();
+                    }
+                    UISubsystem->GetNavigator(PC)->PopContentScreen();
                 }));
         }
         else
         {
-            UISubsystem->GetNavigator()->PopContentScreen();
+            UISubsystem->GetNavigator(PC)->PopContentScreen();
         }
     }
 }

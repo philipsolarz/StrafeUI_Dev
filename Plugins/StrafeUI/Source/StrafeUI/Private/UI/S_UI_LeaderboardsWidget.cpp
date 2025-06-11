@@ -8,6 +8,7 @@
 #include "CommonButtonBase.h"
 #include "S_UI_Subsystem.h"
 #include "S_UI_Navigator.h"
+#include "S_UI_PlayerController.h"
 
 US_UI_ViewModelBase* US_UI_LeaderboardsWidget::CreateViewModel()
 {
@@ -116,6 +117,9 @@ void US_UI_LeaderboardsWidget::OnBackClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->PopContentScreen();
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->PopContentScreen();
+        }
     }
 }

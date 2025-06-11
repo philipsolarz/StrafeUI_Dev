@@ -6,7 +6,10 @@
 #include "ViewModel/S_UI_ViewModelBase.h"
 #include "OnlineSessionSettings.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "S_UI_PlayerController.h"
 #include "S_UI_VM_ServerBrowser.generated.h"
+
+
 
 /**
  * @struct F_ServerInfo
@@ -77,6 +80,9 @@ class STRAFEUI_API US_UI_VM_ServerBrowser : public US_UI_ViewModelBase
 public:
 	virtual ~US_UI_VM_ServerBrowser();
 
+	/** Sets the owning player controller for this view model. */
+	void SetOwningPlayer(AS_UI_PlayerController* InPlayerController) { OwningPlayerController = InPlayerController; }
+
 	/**
 	 * The list of servers to be displayed in the UI.
 	 */
@@ -144,4 +150,8 @@ private:
 
 	/** Checks if a server passes the current filter criteria */
 	bool PassesFilters(const TSharedPtr<US_UI_VM_ServerListEntry>& Entry) const;
+
+	/** The player controller that owns this view model. */
+	UPROPERTY()
+	TWeakObjectPtr<AS_UI_PlayerController> OwningPlayerController;
 };

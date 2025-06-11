@@ -4,6 +4,7 @@
 #include "S_UI_Subsystem.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
+#include "S_UI_PlayerController.h"
 
 void US_UI_VM_Replays::Initialize()
 {
@@ -83,8 +84,11 @@ void US_UI_VM_Replays::DeleteSelectedReplay()
             Payload.Message = FText::FromString(TEXT("Are you sure you want to delete this replay? This action cannot be undone."));
             Payload.ModalType = E_UIModalType::YesNo;
 
-            UISubsystem->RequestModal(Payload, FOnModalDismissedSignature::CreateUObject(
-                this, &US_UI_VM_Replays::PerformDeleteReplay));
+            if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+            {
+                UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature::CreateUObject(
+                    this, &US_UI_VM_Replays::PerformDeleteReplay));
+            }
         }
     }
 }
@@ -98,7 +102,6 @@ void US_UI_VM_Replays::SetSelectedReplay(UObject* ReplayEntry)
     }
 }
 
-// <<< FIX: Added bConfirmed parameter and logic to handle it
 void US_UI_VM_Replays::PerformDeleteReplay(bool bConfirmed)
 {
     if (!bConfirmed || !ReplayService || !SelectedReplay)
@@ -129,10 +132,13 @@ void US_UI_VM_Replays::PerformDeleteReplay(bool bConfirmed)
                     {
                         if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
                         {
-                            F_UIModalPayload Payload;
-                            Payload.Message = FText::FromString(TEXT("Failed to delete the replay. Please try again."));
-                            Payload.ModalType = E_UIModalType::OK;
-                            UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+                            if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+                            {
+                                F_UIModalPayload Payload;
+                                Payload.Message = FText::FromString(TEXT("Failed to delete the replay. Please try again."));
+                                Payload.ModalType = E_UIModalType::OK;
+                                UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
+                            }
                         }
                     }
 

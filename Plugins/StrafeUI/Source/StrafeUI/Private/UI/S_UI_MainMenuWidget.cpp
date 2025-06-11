@@ -6,6 +6,7 @@
 #include "S_UI_Navigator.h"
 #include "Data/S_UI_ScreenTypes.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "S_UI_PlayerController.h"
 
 void US_UI_MainMenuWidget::NativeOnInitialized()
 {
@@ -42,7 +43,10 @@ void US_UI_MainMenuWidget::HandleCreateGameClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::CreateGame);
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->SwitchContentScreen(E_UIScreenId::CreateGame);
+        }
     }
 }
 
@@ -50,7 +54,10 @@ void US_UI_MainMenuWidget::HandleFindGameClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::FindGame);
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->SwitchContentScreen(E_UIScreenId::FindGame);
+        }
     }
 }
 
@@ -58,7 +65,10 @@ void US_UI_MainMenuWidget::HandleLeaderboardsClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::Leaderboards);
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->SwitchContentScreen(E_UIScreenId::Leaderboards);
+        }
     }
 }
 
@@ -66,7 +76,10 @@ void US_UI_MainMenuWidget::HandleReplaysClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::Replays);
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->SwitchContentScreen(E_UIScreenId::Replays);
+        }
     }
 }
 
@@ -74,7 +87,10 @@ void US_UI_MainMenuWidget::HandleSettingsClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->SwitchContentScreen(E_UIScreenId::Settings);
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->SwitchContentScreen(E_UIScreenId::Settings);
+        }
     }
 }
 
@@ -87,14 +103,16 @@ void US_UI_MainMenuWidget::HandleQuitClicked()
         Payload.Message = FText::FromString(TEXT("Are you sure you want to quit?"));
         Payload.ModalType = E_UIModalType::YesNo;
 
-        // The lambda function will be executed when the modal is dismissed.
-        // Use the new FOnModalDismissedSignature and its CreateLambda method.
-        UISubsystem->RequestModal(Payload, FOnModalDismissedSignature::CreateLambda([this](bool bConfirmed)
-            {
-                if (bConfirmed)
+        // Pass the owning player controller
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature::CreateLambda([this](bool bConfirmed)
                 {
-                    UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, true);
-                }
-            }));
+                    if (bConfirmed)
+                    {
+                        UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, true);
+                    }
+                }));
+        }
     }
 }

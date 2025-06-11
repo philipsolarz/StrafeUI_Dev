@@ -8,7 +8,7 @@
 #include "Interfaces/OnlineSessionInterface.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
-#include "GameFramework/PlayerController.h"
+#include "S_UI_PlayerController.h"
 #include "Data/S_UI_ScreenTypes.h"
 #include "Online/OnlineSessionNames.h"
 
@@ -44,6 +44,13 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 {
 	UE_LOG(LogTemp, Log, TEXT("Refreshing server list..."));
 
+	AS_UI_PlayerController* PC = OwningPlayerController.Get();
+	if (!PC)
+	{
+		UE_LOG(LogTemp, Error, TEXT("No player controller for server list refresh"));
+		return;
+	}
+
 	// Clear existing lists
 	ServerList.Empty();
 	AllFoundServers.Empty();
@@ -63,7 +70,7 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 				F_UIModalPayload Payload;
 				Payload.Message = FText::FromString(TEXT("Online services are not available. Please check your connection."));
 				Payload.ModalType = E_UIModalType::OK;
-				UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+				UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
 			}
 		}
 		return;
@@ -95,21 +102,12 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 
 
 	// Get the local player
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogTemp, Error, TEXT("No world context"));
-		return;
-	}
-
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->GetLocalPlayer())
-	{
-		UE_LOG(LogTemp, Error, TEXT("No local player controller"));
-		return;
-	}
-
 	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+	if (!LocalPlayer)
+	{
+		UE_LOG(LogTemp, Error, TEXT("No local player for server list refresh"));
+		return;
+	}
 
 	// Bind the completion delegate
 	FindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(
@@ -125,12 +123,15 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 		SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
 
 		// Show error modal
-		if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+		if (UWorld* World = GetWorld())
 		{
-			F_UIModalPayload Payload;
-			Payload.Message = FText::FromString(TEXT("Failed to search for game sessions. Please try again."));
-			Payload.ModalType = E_UIModalType::OK;
-			UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+			if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+			{
+				F_UIModalPayload Payload;
+				Payload.Message = FText::FromString(TEXT("Failed to search for game sessions. Please try again."));
+				Payload.ModalType = E_UIModalType::OK;
+				UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
+			}
 		}
 	}
 }
@@ -227,10 +228,13 @@ void US_UI_VM_ServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			{
 				if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
 				{
-					F_UIModalPayload Payload;
-					Payload.Message = FText::FromString(TEXT("No game sessions found. Try creating your own!"));
-					Payload.ModalType = E_UIModalType::OK;
-					UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+					if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+					{
+						F_UIModalPayload Payload;
+						Payload.Message = FText::FromString(TEXT("No game sessions found. Try creating your own!"));
+						Payload.ModalType = E_UIModalType::OK;
+						UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
+					}
 				}
 			}
 		}
@@ -239,6 +243,12 @@ void US_UI_VM_ServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 
 void US_UI_VM_ServerBrowser::JoinSession(const FOnlineSessionSearchResult& SessionSearchResult)
 {
+	AS_UI_PlayerController* PC = OwningPlayerController.Get();
+	if (!PC)
+	{
+		UE_LOG(LogTemp, Error, TEXT("No player controller to join session"));
+		return;
+	}
 	// Get the Online Subsystem
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (!OnlineSubsystem)
@@ -256,21 +266,12 @@ void US_UI_VM_ServerBrowser::JoinSession(const FOnlineSessionSearchResult& Sessi
 	}
 
 	// Get the local player
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogTemp, Error, TEXT("No world context"));
-		return;
-	}
-
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->GetLocalPlayer())
-	{
-		UE_LOG(LogTemp, Error, TEXT("No local player controller"));
-		return;
-	}
-
 	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+	if (!LocalPlayer)
+	{
+		UE_LOG(LogTemp, Error, TEXT("No local player to join session"));
+		return;
+	}
 
 	// Bind the completion delegate
 	JoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(
@@ -286,12 +287,15 @@ void US_UI_VM_ServerBrowser::JoinSession(const FOnlineSessionSearchResult& Sessi
 		SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
 
 		// Show error modal
-		if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+		if (UWorld* World = GetWorld())
 		{
-			F_UIModalPayload Payload;
-			Payload.Message = FText::FromString(TEXT("Failed to join the selected game session."));
-			Payload.ModalType = E_UIModalType::OK;
-			UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+			if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+			{
+				F_UIModalPayload Payload;
+				Payload.Message = FText::FromString(TEXT("Failed to join the selected game session."));
+				Payload.ModalType = E_UIModalType::OK;
+				UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
+			}
 		}
 	}
 }
@@ -326,7 +330,7 @@ void US_UI_VM_ServerBrowser::OnJoinSessionComplete(FName SessionName, EOnJoinSes
 			UE_LOG(LogTemp, Log, TEXT("Traveling to server: %s"), *ConnectString);
 
 			// Travel to the server
-			if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+			if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
 			{
 				PC->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
 			}
@@ -362,10 +366,13 @@ void US_UI_VM_ServerBrowser::OnJoinSessionComplete(FName SessionName, EOnJoinSes
 		{
 			if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
 			{
-				F_UIModalPayload Payload;
-				Payload.Message = FText::FromString(ErrorMessage);
-				Payload.ModalType = E_UIModalType::OK;
-				UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+				if (AS_UI_PlayerController* PC = OwningPlayerController.Get())
+				{
+					F_UIModalPayload Payload;
+					Payload.Message = FText::FromString(ErrorMessage);
+					Payload.ModalType = E_UIModalType::OK;
+					UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
+				}
 			}
 		}
 	}

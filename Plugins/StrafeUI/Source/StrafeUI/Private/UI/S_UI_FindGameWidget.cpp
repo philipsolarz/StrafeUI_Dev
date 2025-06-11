@@ -7,6 +7,7 @@
 #include "Components/ListView.h"
 #include "S_UI_Subsystem.h"
 #include "S_UI_Navigator.h"
+#include "S_UI_PlayerController.h"
 
 US_UI_ViewModelBase* US_UI_FindGameWidget::CreateViewModel()
 {
@@ -18,6 +19,12 @@ void US_UI_FindGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
     if (US_UI_VM_ServerBrowser* InServerBrowserViewModel = Cast<US_UI_VM_ServerBrowser>(InViewModel))
     {
         ViewModel = InServerBrowserViewModel;
+
+        // Set the owning player for the ViewModel
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            ViewModel->SetOwningPlayer(PC);
+        }
 
         // Bind to the ViewModel's OnDataChanged delegate to be notified of updates.
         ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_FindGameWidget::OnServerListUpdated);
@@ -39,11 +46,6 @@ void US_UI_FindGameWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
 
-    //if (Btn_Refresh && ViewModel.IsValid())
-    //{
-    //    // Pure MVVM approach: Bind button click directly to the ViewModel's function.
-    //    Btn_Refresh->OnClicked().AddUObject(ViewModel.Get(), &US_UI_VM_ServerBrowser::RequestServerListRefresh);
-    //}
     if (Btn_Join)
     {
         Btn_Join->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleJoinClicked);
@@ -122,6 +124,12 @@ void US_UI_FindGameWidget::HandleJoinClicked()
         return;
     }
 
+    AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer());
+    if (!PC)
+    {
+        return;
+    }
+
     // Get the selected server entry
     US_UI_VM_ServerListEntry* SelectedItem = List_Servers->GetSelectedItem<US_UI_VM_ServerListEntry>();
     if (!SelectedItem)
@@ -134,7 +142,7 @@ void US_UI_FindGameWidget::HandleJoinClicked()
             F_UIModalPayload Payload;
             Payload.Message = FText::FromString(TEXT("Please select a server to join."));
             Payload.ModalType = E_UIModalType::OK;
-            UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+            UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature());
         }
         return;
     }
@@ -152,7 +160,7 @@ void US_UI_FindGameWidget::HandleJoinClicked()
             Payload.ModalType = E_UIModalType::YesNo;
 
             // Capture the selected item in the lambda
-            UISubsystem->RequestModal(Payload, FOnModalDismissedSignature::CreateLambda(
+            UISubsystem->RequestModal(PC, Payload, FOnModalDismissedSignature::CreateLambda(
                 [this, SelectedItem](bool bConfirmed)
                 {
                     if (bConfirmed && ViewModel.IsValid())
@@ -173,7 +181,10 @@ void US_UI_FindGameWidget::HandleBackClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->PopContentScreen();
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->PopContentScreen();
+        }
     }
 }
 

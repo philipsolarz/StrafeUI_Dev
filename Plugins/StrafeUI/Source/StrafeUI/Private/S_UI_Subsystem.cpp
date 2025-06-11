@@ -153,7 +153,7 @@ void US_UI_Subsystem::FinalizeUIInitialization(AS_UI_PlayerController* PlayerCon
         UIState->InputController = NewObject<US_UI_InputController>(this, LoadedInputControllerClass);
         if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
         {
-            UIState->InputController->Initialize(this, EIC, Settings);
+            UIState->InputController->Initialize(this, EIC, Settings, PlayerController);
         }
     }
 

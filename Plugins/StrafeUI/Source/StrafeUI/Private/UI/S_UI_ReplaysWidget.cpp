@@ -8,6 +8,7 @@
 #include "S_UI_Subsystem.h"
 #include "S_UI_Navigator.h"
 #include "GameFramework/PlayerController.h"
+#include "S_UI_PlayerController.h"
 
 US_UI_ViewModelBase* US_UI_ReplaysWidget::CreateViewModel()
 {
@@ -21,6 +22,12 @@ void US_UI_ReplaysWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
     if (US_UI_VM_Replays* InReplaysViewModel = Cast<US_UI_VM_Replays>(InViewModel))
     {
         ViewModel = InReplaysViewModel;
+
+        // Set the owning player for the ViewModel
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            ViewModel->SetOwningPlayer(PC);
+        }
 
         // Bind to data changes
         ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_ReplaysWidget::OnViewModelDataChanged);
@@ -131,7 +138,10 @@ void US_UI_ReplaysWidget::OnBackClicked()
 {
     if (US_UI_Subsystem* UISubsystem = GetUISubsystem())
     {
-        UISubsystem->GetNavigator()->PopContentScreen();
+        if (AS_UI_PlayerController* PC = Cast<AS_UI_PlayerController>(GetOwningPlayer()))
+        {
+            UISubsystem->GetNavigator(PC)->PopContentScreen();
+        }
     }
 }
 

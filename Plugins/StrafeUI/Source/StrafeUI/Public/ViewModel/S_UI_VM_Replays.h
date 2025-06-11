@@ -7,6 +7,8 @@
 #include "Services/S_ReplayService.h"
 #include "S_UI_VM_Replays.generated.h"
 
+class AS_UI_PlayerController;
+
 /**
  * ViewModel entry for replay list items
  */
@@ -43,6 +45,9 @@ class STRAFEUI_API US_UI_VM_Replays : public US_UI_ViewModelBase
 public:
     /** Initializes the ViewModel */
     void Initialize();
+
+    /** Sets the owning player controller for this view model. */
+    void SetOwningPlayer(AS_UI_PlayerController* InPlayerController) { OwningPlayerController = InPlayerController; }
 
     /** Refreshes the replay list */
     UFUNCTION(BlueprintCallable, Category = "Replays")
@@ -88,6 +93,9 @@ private:
     FString FormatFileSize(int32 SizeKB) const;
 
     /** Actually performs the deletion after confirmation */
-    // <<< FIX: Added bConfirmed parameter
     void PerformDeleteReplay(bool bConfirmed);
+
+    /** The player controller that owns this view model. */
+    UPROPERTY()
+    TWeakObjectPtr<AS_UI_PlayerController> OwningPlayerController;
 };
