@@ -88,5 +88,6 @@ private:
     FString FormatFileSize(int32 SizeKB) const;
 
     /** Actually performs the deletion after confirmation */
-    void PerformDeleteReplay();
+    // <<< FIX: Added bConfirmed parameter
+    void PerformDeleteReplay(bool bConfirmed);
 };

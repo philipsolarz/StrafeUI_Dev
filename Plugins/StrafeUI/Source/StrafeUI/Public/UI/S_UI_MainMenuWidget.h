@@ -30,6 +30,12 @@ private:
     void HandleFindGameClicked();
 
     UFUNCTION()
+    void HandleLeaderboardsClicked();
+
+    UFUNCTION()
+    void HandleReplaysClicked();
+
+    UFUNCTION()
     void HandleSettingsClicked();
 
     UFUNCTION()
@@ -41,6 +47,12 @@ private:
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UCommonButtonBase> Btn_Find;
+
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<UCommonButtonBase> Btn_Leaderboards;
+
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<UCommonButtonBase> Btn_Replays;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UCommonButtonBase> Btn_Settings;

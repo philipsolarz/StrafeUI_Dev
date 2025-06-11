@@ -98,9 +98,10 @@ void US_UI_VM_Replays::SetSelectedReplay(UObject* ReplayEntry)
     }
 }
 
-void US_UI_VM_Replays::PerformDeleteReplay()
+// <<< FIX: Added bConfirmed parameter and logic to handle it
+void US_UI_VM_Replays::PerformDeleteReplay(bool bConfirmed)
 {
-    if (!ReplayService || !SelectedReplay)
+    if (!bConfirmed || !ReplayService || !SelectedReplay)
     {
         return;
     }

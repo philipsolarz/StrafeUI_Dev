@@ -123,12 +123,13 @@ void US_UI_VM_CreateGame::CreateGame()
 	// Basic settings
 	SessionSettings->NumPublicConnections = MaxPlayers;
 	SessionSettings->NumPrivateConnections = 0;
-	SessionSettings->bShouldAdvertise = !bIsPrivate;
+	SessionSettings->bShouldAdvertise = true;
 	SessionSettings->bAllowJoinInProgress = true;
 	SessionSettings->bIsLANMatch = bIsLANMatch;
-	SessionSettings->bUsesPresence = true;
+	SessionSettings->bIsDedicated = bIsDedicatedServer;
+	SessionSettings->bUsesPresence = !bIsDedicatedServer;
 	SessionSettings->bAllowInvites = true;
-	SessionSettings->bAllowJoinViaPresence = true;
+	SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
 
 	// Custom settings - store all our game-specific data
@@ -222,6 +223,7 @@ void US_UI_VM_CreateGame::OnCreateSessionComplete(FName SessionName, bool bWasSu
 void US_UI_VM_CreateGame::OnGameModeChanged(FString InSelectedGameModeName)
 {
 	SelectedGameModeName = InSelectedGameModeName;
+	UE_LOG(LogTemp, Warning, TEXT("[CreateGameVM] OnGameModeChanged: ViewModel's game mode is now '%s'. Broadcasting change."), *SelectedGameModeName);
 	MapDisplayNames.Empty();
 
 	if (!UISettings.IsValid()) return;

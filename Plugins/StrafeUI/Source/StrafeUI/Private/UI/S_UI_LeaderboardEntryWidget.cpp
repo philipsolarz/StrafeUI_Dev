@@ -1,6 +1,7 @@
 // Plugins/StrafeUI/Source/StrafeUI/Private/UI/S_UI_LeaderboardEntryWidget.cpp
 
 #include "UI/S_UI_LeaderboardEntryWidget.h"
+#include "UI/S_UI_LeaderboardsWidget.h" // <<< FIX: Added this include
 #include "ViewModel/S_UI_VM_Leaderboards.h"
 #include "CommonTextBlock.h"
 #include "CommonButtonBase.h"
