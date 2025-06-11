@@ -171,8 +171,6 @@ void US_UI_VM_CreateGame::CreateNewSession()
 		return;
 	}
 
-	// ... (The rest of the original CreateGame function, from creating SessionSettings onward)
-
 	// Get the local player
 	UWorld* World = GetWorld();
 	if (!World)
@@ -196,24 +194,25 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	SessionSettings->NumPrivateConnections = 0;
 	SessionSettings->bShouldAdvertise = true;
 	SessionSettings->bAllowJoinInProgress = true;
-	SessionSettings->bIsLANMatch = bIsLANMatch;
+	SessionSettings->bIsLANMatch = OnlineSubsystem->GetSubsystemName() == "NULL" ? true : false;
 	SessionSettings->bIsDedicated = bIsDedicatedServer;
 	SessionSettings->bUsesPresence = !bIsDedicatedServer;
 	SessionSettings->bUseLobbiesIfAvailable = !bIsDedicatedServer;
 	SessionSettings->bAllowInvites = true;
 	SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
+	SessionSettings->BuildUniqueId = 1;
 
 	// Custom settings - store all our game-specific data
-	SessionSettings->Set(SETTING_MAPNAME, SelectedMapName, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_GAMENAME, GameName, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_GAMEMODE, SelectedGameModeName, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_SERVERDESC, ServerDescription, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_FRIENDLYFIRE, bAllowFriendlyFire, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_SPECTATORS, bAllowSpectators, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_TIMELIMIT, TimeLimit, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_SCORELIMIT, ScoreLimit, EOnlineDataAdvertisementType::ViaOnlineService);
-	SessionSettings->Set(SETTING_RESPAWNTIME, RespawnTime, EOnlineDataAdvertisementType::ViaOnlineService);
+	SessionSettings->Set(SETTING_MAPNAME, SelectedMapName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_GAMENAME, GameName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_GAMEMODE, SelectedGameModeName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_SERVERDESC, ServerDescription, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_FRIENDLYFIRE, bAllowFriendlyFire, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_SPECTATORS, bAllowSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_TIMELIMIT, TimeLimit, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_SCORELIMIT, ScoreLimit, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_RESPAWNTIME, RespawnTime, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 	// If password protected, store the password (Note: In production, you'd want to handle this more securely)
 	if (!Password.IsEmpty())

@@ -84,12 +84,13 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 	}
 
 	// Configure the search
-	SessionSearch->bIsLanQuery = false; // Search internet servers
-	SessionSearch->MaxSearchResults = 100; // Maximum number of results
-	SessionSearch->PingBucketSize = 50; // Ping bucket size in ms
+	SessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
+	SessionSearch->MaxSearchResults = 10000; // Maximum number of results
+	//SessionSearch->PingBucketSize = 50; // Ping bucket size in ms
 
 	// Search for presence sessions (sessions that advertise themselves)
-	//SessionSearch->QuerySettings.Set(FName(TEXT("PRESENCESEARCH")), true, EOnlineComparisonOp::Equals);
+	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+
 
 	// Get the local player
 	UWorld* World = GetWorld();
