@@ -9,6 +9,7 @@
 
 class UCommonButtonBase;
 class UListView;
+class UCheckBox; // Keep this forward declaration
 class US_UI_CollapsibleBox;
 class US_UI_ServerFilterWidget;
 
@@ -36,12 +37,20 @@ private:
     UFUNCTION()
     void OnServerListUpdated();
 
+    /** Called when the user clicks on an item in the server list. */
+    UFUNCTION()
+    void OnServerSelected(UObject* Item);
+
     /** Updates the enabled state of buttons based on current selection */
     void UpdateButtonStates();
 
     /** Called when filter values change */
     UFUNCTION()
     void OnFiltersChanged();
+
+    /** Called when the Search LAN checkbox is changed */
+    UFUNCTION()
+    void HandleSearchLANChanged(bool bIsChecked);
 
     //~ Button Click Handlers
     UFUNCTION()
@@ -72,4 +81,7 @@ private:
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<US_UI_ServerFilterWidget> ServerFilterWidget;
+
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<UCheckBox> Chk_SearchLAN;
 };

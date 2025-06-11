@@ -115,6 +115,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Server Browser|Filters")
 	int32 FilterMaxPing = 999;
 
+	UPROPERTY(BlueprintReadWrite, Category = "Server Browser|Filters")
+	bool bSearchLAN = true;
+
 	/** Apply current filters and refresh the displayed list */
 	UFUNCTION(BlueprintCallable, Category = "Server Browser")
 	void ApplyFilters();
@@ -133,7 +136,8 @@ private:
 	TSharedPtr<FOnlineSessionSearch> SessionSearch;
 
 	/** Cached list of all found servers before filtering */
-	TArray<TSharedPtr<US_UI_VM_ServerListEntry>> AllFoundServers;
+	UPROPERTY()
+	TArray<TObjectPtr<US_UI_VM_ServerListEntry>> AllFoundServers;
 
 	/** Delegate handles for cleanup */
 	FDelegateHandle FindSessionsCompleteDelegateHandle;
@@ -143,5 +147,5 @@ private:
 	void UpdateFilteredServerList();
 
 	/** Checks if a server passes the current filter criteria */
-	bool PassesFilters(const TSharedPtr<US_UI_VM_ServerListEntry>& Entry) const;
+	bool PassesFilters(const TObjectPtr<US_UI_VM_ServerListEntry>& Entry) const;
 };

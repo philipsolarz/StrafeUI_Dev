@@ -5,6 +5,7 @@
 #include "UI/S_UI_CollapsibleBox.h"
 #include "S_UI_Settings.h"
 #include "Components/ListView.h"
+#include "Components/CheckBox.h"
 #include "S_UI_Subsystem.h"
 #include "S_UI_Navigator.h"
 
@@ -39,6 +40,11 @@ void US_UI_FindGameWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
 
+    if (Chk_SearchLAN)
+    {
+        Chk_SearchLAN->OnCheckStateChanged.AddDynamic(this, &US_UI_FindGameWidget::HandleSearchLANChanged);
+    }
+
     //if (Btn_Refresh && ViewModel.IsValid())
     //{
     //    // Pure MVVM approach: Bind button click directly to the ViewModel's function.
@@ -51,6 +57,11 @@ void US_UI_FindGameWidget::NativeOnInitialized()
     if (Btn_Back)
     {
         Btn_Back->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleBackClicked);
+    }
+
+    if (List_Servers)
+    {
+        List_Servers->OnItemSelectionChanged().AddUObject(this, &US_UI_FindGameWidget::OnServerSelected);
     }
 
     // Bind to filter widget changes
@@ -91,7 +102,7 @@ void US_UI_FindGameWidget::OnServerListUpdated()
             // This is needed for the join functionality
             for (const auto& FoundServer : ViewModel->AllFoundServers)
             {
-                if (FoundServer.IsValid() &&
+                if (FoundServer &&
                     FoundServer->ServerInfo.ServerName.EqualTo(ServerInfo.ServerName) &&
                     FoundServer->ServerInfo.Ping == ServerInfo.Ping)
                 {
@@ -114,6 +125,13 @@ void US_UI_FindGameWidget::OnServerListUpdated()
         UpdateButtonStates();
     }
 }
+
+void US_UI_FindGameWidget::OnServerSelected(UObject* Item)
+{
+    // The only thing we need to do when selection changes is update the button states.
+    UpdateButtonStates();
+}
+
 
 void US_UI_FindGameWidget::HandleJoinClicked()
 {
@@ -204,4 +222,12 @@ void US_UI_FindGameWidget::OnFiltersChanged()
 
     // Apply the filters
     ViewModel->ApplyFilters();
+}
+
+void US_UI_FindGameWidget::HandleSearchLANChanged(bool bIsChecked)
+{
+    if (ViewModel.IsValid())
+    {
+        ViewModel->bSearchLAN = bIsChecked;
+    }
 }
