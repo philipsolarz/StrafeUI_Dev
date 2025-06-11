@@ -37,6 +37,10 @@ private:
     UFUNCTION()
     void OnServerListUpdated();
 
+    /** Called when the user clicks on an item in the server list. */
+    UFUNCTION()
+    void OnServerSelected(UObject* Item);
+
     /** Updates the enabled state of buttons based on current selection */
     void UpdateButtonStates();
 

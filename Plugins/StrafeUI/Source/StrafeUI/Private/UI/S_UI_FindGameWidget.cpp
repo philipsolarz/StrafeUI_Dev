@@ -59,6 +59,11 @@ void US_UI_FindGameWidget::NativeOnInitialized()
         Btn_Back->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleBackClicked);
     }
 
+    if (List_Servers)
+    {
+        List_Servers->OnItemSelectionChanged().AddUObject(this, &US_UI_FindGameWidget::OnServerSelected);
+    }
+
     // Bind to filter widget changes
     if (ServerFilterWidget)
     {
@@ -120,6 +125,13 @@ void US_UI_FindGameWidget::OnServerListUpdated()
         UpdateButtonStates();
     }
 }
+
+void US_UI_FindGameWidget::OnServerSelected(UObject* Item)
+{
+    // The only thing we need to do when selection changes is update the button states.
+    UpdateButtonStates();
+}
+
 
 void US_UI_FindGameWidget::HandleJoinClicked()
 {
