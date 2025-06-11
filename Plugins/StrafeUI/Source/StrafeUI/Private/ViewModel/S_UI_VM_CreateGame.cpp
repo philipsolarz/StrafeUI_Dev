@@ -20,6 +20,7 @@
 #define SETTING_TIMELIMIT FName(TEXT("TIMELIMIT"))
 #define SETTING_SCORELIMIT FName(TEXT("SCORELIMIT"))
 #define SETTING_RESPAWNTIME FName(TEXT("RESPAWNTIME"))
+#define SETTING_GAMETAG FName(TEXT("GAMETAG"))
 
 void US_UI_VM_CreateGame::Initialize(const US_UI_Settings* InSettings)
 {
@@ -194,7 +195,7 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	SessionSettings->NumPrivateConnections = 0;
 	SessionSettings->bShouldAdvertise = true;
 	SessionSettings->bAllowJoinInProgress = true;
-	SessionSettings->bIsLANMatch = OnlineSubsystem->GetSubsystemName() == "NULL" ? true : false;
+	SessionSettings->bIsLANMatch = bIsLANMatch;
 	SessionSettings->bIsDedicated = bIsDedicatedServer;
 	SessionSettings->bUsesPresence = !bIsDedicatedServer;
 	SessionSettings->bUseLobbiesIfAvailable = !bIsDedicatedServer;
@@ -213,6 +214,7 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	SessionSettings->Set(SETTING_TIMELIMIT, TimeLimit, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	SessionSettings->Set(SETTING_SCORELIMIT, ScoreLimit, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	SessionSettings->Set(SETTING_RESPAWNTIME, RespawnTime, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	SessionSettings->Set(SETTING_GAMETAG, FString("StrafeGame"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 	// If password protected, store the password (Note: In production, you'd want to handle this more securely)
 	if (!Password.IsEmpty())
@@ -220,7 +222,6 @@ void US_UI_VM_CreateGame::CreateNewSession()
 		SessionSettings->Set(FName(TEXT("PASSWORD")), Password, EOnlineDataAdvertisementType::DontAdvertise);
 	}
 
-	// *** ADDED LOGS FOR VERIFICATION ***
 	UE_LOG(LogTemp, Log, TEXT("--- Creating Game Session with Settings ---"));
 	UE_LOG(LogTemp, Log, TEXT("Game Name: %s"), *GameName);
 	UE_LOG(LogTemp, Log, TEXT("Map Name: %s"), *SelectedMapName);
@@ -231,6 +232,7 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	UE_LOG(LogTemp, Log, TEXT("Uses Presence: %s"), (SessionSettings->bUsesPresence ? TEXT("true") : TEXT("false")));
 	UE_LOG(LogTemp, Log, TEXT("Should Advertise: %s"), (SessionSettings->bShouldAdvertise ? TEXT("true") : TEXT("false")));
 	UE_LOG(LogTemp, Log, TEXT("Password Protected: %s"), (!Password.IsEmpty() ? TEXT("true") : TEXT("false")));
+	UE_LOG(LogTemp, Log, TEXT("Game Tag: %s"), TEXT("StrafeGame"));
 	UE_LOG(LogTemp, Log, TEXT("-----------------------------------------"));
 
 
@@ -264,20 +266,67 @@ void US_UI_VM_CreateGame::CreateNewSession()
 
 void US_UI_VM_CreateGame::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	// Get the session interface to clean up the delegate
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
 		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
+			// Clean up the delegate regardless of success
 			SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
+
+			if (bWasSuccessful)
+			{
+				UE_LOG(LogTemp, Log, TEXT("Session '%s' created successfully. Starting session..."), *SessionName.ToString());
+
+				// Bind the start session delegate
+				StartSessionCompleteDelegateHandle = SessionInterface->AddOnStartSessionCompleteDelegate_Handle(
+					FOnStartSessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnStartSessionComplete)
+				);
+
+				// Start the session
+				if (!SessionInterface->StartSession(SessionName))
+				{
+					UE_LOG(LogTemp, Error, TEXT("Failed to start session."));
+					SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("Failed to create session"));
+
+				// Show error modal
+				if (UWorld* World = GetWorld())
+				{
+					if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
+					{
+						F_UIModalPayload Payload;
+						Payload.Message = FText::FromString(TEXT("Failed to create game session. Please check your connection and try again."));
+						Payload.ModalType = E_UIModalType::OK;
+						UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
+					}
+				}
+			}
+		}
+	}
+}
+
+void US_UI_VM_CreateGame::OnStartSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
+		if (SessionInterface.IsValid())
+		{
+			// Clean up the delegate
+			SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
 		}
 	}
 
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogTemp, Log, TEXT("Session created successfully. Starting travel to map..."));
+		UE_LOG(LogTemp, Log, TEXT("Session '%s' started successfully. Traveling to map..."), *SessionName.ToString());
 
 		// Travel to the map as a listen server
 		UWorld* World = GetWorld();
@@ -289,19 +338,7 @@ void US_UI_VM_CreateGame::OnCreateSessionComplete(FName SessionName, bool bWasSu
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to create session"));
-
-		// Show error modal
-		if (UWorld* World = GetWorld())
-		{
-			if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-			{
-				F_UIModalPayload Payload;
-				Payload.Message = FText::FromString(TEXT("Failed to create game session. Please check your connection and try again."));
-				Payload.ModalType = E_UIModalType::OK;
-				UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-			}
-		}
+		UE_LOG(LogTemp, Error, TEXT("Failed to start session."));
 	}
 }
 

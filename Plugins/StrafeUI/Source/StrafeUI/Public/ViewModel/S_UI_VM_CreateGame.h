@@ -81,6 +81,9 @@ private:
 	/** Callback for when a previous session is destroyed before creating a new one. */
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
+	/** Callback for when the session has been started */
+	void OnStartSessionComplete(FName SessionName, bool bWasSuccessful);
+
 	/** Contains the actual logic to create the session settings and trigger the creation. */
 	void CreateNewSession();
 
@@ -89,6 +92,9 @@ private:
 
 	/** Delegate handle for the destroy session callback. */
 	FDelegateHandle DestroySessionCompleteDelegateHandle;
+
+	/** Delegate handle for the start session callback. */
+	FDelegateHandle StartSessionCompleteDelegateHandle;
 
 	UPROPERTY()
 	TWeakObjectPtr<const US_UI_Settings> UISettings;

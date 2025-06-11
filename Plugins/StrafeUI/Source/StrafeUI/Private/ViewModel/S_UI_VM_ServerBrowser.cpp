@@ -22,6 +22,8 @@
 #define SETTING_TIMELIMIT FName(TEXT("TIMELIMIT"))
 #define SETTING_SCORELIMIT FName(TEXT("SCORELIMIT"))
 #define SETTING_RESPAWNTIME FName(TEXT("RESPAWNTIME"))
+// *** FIX: Add a unique tag to filter sessions by, preventing other games on Steam App ID 480 from showing up ***
+#define SETTING_GAMETAG FName(TEXT("GAMETAG"))
 
 US_UI_VM_ServerBrowser::~US_UI_VM_ServerBrowser()
 {
@@ -85,10 +87,11 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 
 	// Configure the search
 	SessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
-	SessionSearch->MaxSearchResults = 10000; // Maximum number of results
-
-	// *** FIX: This is the crucial missing piece for finding online games. ***
+	SessionSearch->MaxSearchResults = 10000;
 	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+
+	// *** FIX: Add a query filter for our unique game tag ***
+	SessionSearch->QuerySettings.Set(SETTING_GAMETAG, FString("StrafeGame"), EOnlineComparisonOp::Equals);
 
 
 	// Get the local player
