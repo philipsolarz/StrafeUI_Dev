@@ -220,6 +220,20 @@ void US_UI_VM_CreateGame::CreateNewSession()
 		SessionSettings->Set(FName(TEXT("PASSWORD")), Password, EOnlineDataAdvertisementType::DontAdvertise);
 	}
 
+	// *** ADDED LOGS FOR VERIFICATION ***
+	UE_LOG(LogTemp, Log, TEXT("--- Creating Game Session with Settings ---"));
+	UE_LOG(LogTemp, Log, TEXT("Game Name: %s"), *GameName);
+	UE_LOG(LogTemp, Log, TEXT("Map Name: %s"), *SelectedMapName);
+	UE_LOG(LogTemp, Log, TEXT("Game Mode: %s"), *SelectedGameModeName);
+	UE_LOG(LogTemp, Log, TEXT("Max Players: %d"), MaxPlayers);
+	UE_LOG(LogTemp, Log, TEXT("Is LAN Match: %s"), (SessionSettings->bIsLANMatch ? TEXT("true") : TEXT("false")));
+	UE_LOG(LogTemp, Log, TEXT("Is Dedicated: %s"), (bIsDedicatedServer ? TEXT("true") : TEXT("false")));
+	UE_LOG(LogTemp, Log, TEXT("Uses Presence: %s"), (SessionSettings->bUsesPresence ? TEXT("true") : TEXT("false")));
+	UE_LOG(LogTemp, Log, TEXT("Should Advertise: %s"), (SessionSettings->bShouldAdvertise ? TEXT("true") : TEXT("false")));
+	UE_LOG(LogTemp, Log, TEXT("Password Protected: %s"), (!Password.IsEmpty() ? TEXT("true") : TEXT("false")));
+	UE_LOG(LogTemp, Log, TEXT("-----------------------------------------"));
+
+
 	// Bind the completion delegate
 	CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(
 		FOnCreateSessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnCreateSessionComplete)

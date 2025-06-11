@@ -86,9 +86,8 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 	// Configure the search
 	SessionSearch->bIsLanQuery = IOnlineSubsystem::Get()->GetSubsystemName() == "NULL" ? true : false;
 	SessionSearch->MaxSearchResults = 10000; // Maximum number of results
-	//SessionSearch->PingBucketSize = 50; // Ping bucket size in ms
 
-	// Search for presence sessions (sessions that advertise themselves)
+	// *** FIX: This is the crucial missing piece for finding online games. ***
 	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 
 
