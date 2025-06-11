@@ -17,16 +17,21 @@ void US_UI_FindGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
 {
     if (US_UI_VM_ServerBrowser* InServerBrowserViewModel = Cast<US_UI_VM_ServerBrowser>(InViewModel))
     {
-        if (InServerBrowserViewModel)
+        ViewModel = InServerBrowserViewModel;
+
+        // Bind to the ViewModel's OnDataChanged delegate to be notified of updates.
+        ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_FindGameWidget::OnServerListUpdated);
+
+        // Bind the refresh button click now that the ViewModel is valid.
+        if (Btn_Refresh)
         {
-            ViewModel = InServerBrowserViewModel;
-
-            // Bind to the ViewModel's OnDataChanged delegate to be notified of updates.
-            ViewModel->OnDataChanged.AddUniqueDynamic(this, &US_UI_FindGameWidget::OnServerListUpdated);
-
-            // Trigger an initial data refresh.
-            OnServerListUpdated();
+            // Clear any previous bindings to be safe
+            Btn_Refresh->OnClicked().Clear();
+            Btn_Refresh->OnClicked().AddUObject(ViewModel.Get(), &US_UI_VM_ServerBrowser::RequestServerListRefresh);
         }
+
+        // Trigger an initial server list refresh when the screen is opened.
+        ViewModel->RequestServerListRefresh();
     }
 }
 
@@ -34,11 +39,11 @@ void US_UI_FindGameWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
 
-    if (Btn_Refresh && ViewModel.IsValid())
-    {
-        // Pure MVVM approach: Bind button click directly to the ViewModel's function.
-        Btn_Refresh->OnClicked().AddUObject(ViewModel.Get(), &US_UI_VM_ServerBrowser::RequestServerListRefresh);
-    }
+    //if (Btn_Refresh && ViewModel.IsValid())
+    //{
+    //    // Pure MVVM approach: Bind button click directly to the ViewModel's function.
+    //    Btn_Refresh->OnClicked().AddUObject(ViewModel.Get(), &US_UI_VM_ServerBrowser::RequestServerListRefresh);
+    //}
     if (Btn_Join)
     {
         Btn_Join->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleJoinClicked);
