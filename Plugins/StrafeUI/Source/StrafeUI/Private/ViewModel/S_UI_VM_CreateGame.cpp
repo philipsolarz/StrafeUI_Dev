@@ -196,8 +196,8 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	SessionSettings->bAllowJoinInProgress = true;
 	SessionSettings->bIsLANMatch = false;
 	SessionSettings->bIsDedicated = false;
-	SessionSettings->bUsesPresence = false;
-	SessionSettings->bUseLobbiesIfAvailable = false;
+	SessionSettings->bUsesPresence = true;
+	SessionSettings->bUseLobbiesIfAvailable = true;
 	SessionSettings->bAllowInvites = true;
 	SessionSettings->bAllowJoinViaPresence = true;
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;

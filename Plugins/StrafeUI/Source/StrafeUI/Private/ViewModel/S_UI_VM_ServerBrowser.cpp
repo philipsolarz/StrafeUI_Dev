@@ -88,7 +88,7 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 	// Configure the search
 	SessionSearch->bIsLanQuery = bSearchLAN;
 	SessionSearch->MaxSearchResults = 10000;
-	//SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
 
 	// *** FIX: Add a query filter for our unique game tag ***
 	//SessionSearch->QuerySettings.Set(SETTING_GAMETAG, FString("StrafeGame"), EOnlineComparisonOp::Equals);
