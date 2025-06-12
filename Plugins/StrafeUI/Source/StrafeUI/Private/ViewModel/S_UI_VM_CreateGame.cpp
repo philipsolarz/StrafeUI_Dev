@@ -190,18 +190,30 @@ void US_UI_VM_CreateGame::CreateNewSession()
 	// Create the session settings
 	TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
 
-	// Basic settings
-	SessionSettings->NumPublicConnections = MaxPlayers;
-	SessionSettings->NumPrivateConnections = 0;
+	SessionSettings->NumPublicConnections = 16;
+	SessionSettings->NumPrivateConnections = 4;
 	SessionSettings->bShouldAdvertise = true;
 	SessionSettings->bAllowJoinInProgress = true;
-	SessionSettings->bIsLANMatch = bIsLANMatch;
-	SessionSettings->bIsDedicated = bIsDedicatedServer;
-	SessionSettings->bUsesPresence = !bIsDedicatedServer;
-	//SessionSettings->bUseLobbiesIfAvailable = !bIsDedicatedServer;
+	SessionSettings->bIsLANMatch = false;
+	SessionSettings->bIsDedicated = false;
+	SessionSettings->bUsesPresence = false;
+	SessionSettings->bUseLobbiesIfAvailable = false;
 	SessionSettings->bAllowInvites = true;
-	SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
+	SessionSettings->bAllowJoinViaPresence = true;
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
+
+	// Basic settings
+	//SessionSettings->NumPublicConnections = MaxPlayers;
+	//SessionSettings->NumPrivateConnections = 0;
+	//SessionSettings->bShouldAdvertise = true;
+	//SessionSettings->bAllowJoinInProgress = true;
+	//SessionSettings->bIsLANMatch = bIsLANMatch;
+	//SessionSettings->bIsDedicated = bIsDedicatedServer;
+	//SessionSettings->bUsesPresence = !bIsDedicatedServer;
+	//SessionSettings->bUseLobbiesIfAvailable = bIsLANMatch ? false : !bIsDedicatedServer;
+	//SessionSettings->bAllowInvites = true;
+	//SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
+	//SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
 	//SessionSettings->BuildUniqueId = 1;
 
 	// Custom settings - store all our game-specific data
@@ -278,6 +290,18 @@ void US_UI_VM_CreateGame::OnCreateSessionComplete(FName SessionName, bool bWasSu
 			if (bWasSuccessful)
 			{
 				UE_LOG(LogTemp, Log, TEXT("Session '%s' created successfully. Starting session..."), *SessionName.ToString());
+
+				if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+				{
+					const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+					if (LocalPlayer)
+					{
+						SessionInterface->RegisterPlayer(
+							SessionName,
+							*LocalPlayer->GetPreferredUniqueNetId(),
+							/*bWasInvited=*/false);
+					}
+				}
 
 				// Bind the start session delegate
 				StartSessionCompleteDelegateHandle = SessionInterface->AddOnStartSessionCompleteDelegate_Handle(
