@@ -5,13 +5,9 @@
 #include "CoreMinimal.h"
 #include "ViewModel/S_UI_ViewModelBase.h"
 #include "OnlineSessionSettings.h"
-#include "Interfaces/OnlineSessionInterface.h"
+#include "FindSessionsCallbackProxyAdvanced.h" // Use the Advanced Sessions search result struct
 #include "S_UI_VM_ServerBrowser.generated.h"
 
-/**
- * @struct F_ServerInfo
- * @brief Contains information about a single game server.
- */
 USTRUCT(BlueprintType)
 struct F_ServerInfo
 {
@@ -45,12 +41,6 @@ struct F_ServerInfo
 	bool bIsLAN;
 };
 
-/**
- * @class US_UI_VM_ServerListEntry
- * @brief A UObject wrapper for F_ServerInfo to be used with UListView.
- * The widget entry for the list view should implement IUserObjectListEntry
- * and cast the UObject to this class.
- */
 UCLASS()
 class STRAFEUI_API US_UI_VM_ServerListEntry : public UObject
 {
@@ -59,16 +49,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Server Info")
 	F_ServerInfo ServerInfo;
 
-	/** The full session search result needed for joining */
 	FOnlineSessionSearchResult SessionSearchResult;
 };
 
-/**
- * @class US_UI_VM_ServerBrowser
- * @brief ViewModel for the Server Browser screen.
- *
- * Manages the list of servers and handles refresh requests.
- */
 UCLASS(BlueprintType)
 class STRAFEUI_API US_UI_VM_ServerBrowser : public US_UI_ViewModelBase
 {
@@ -77,23 +60,12 @@ class STRAFEUI_API US_UI_VM_ServerBrowser : public US_UI_ViewModelBase
 public:
 	virtual ~US_UI_VM_ServerBrowser();
 
-	/**
-	 * The list of servers to be displayed in the UI.
-	 */
 	UPROPERTY(BlueprintReadOnly, Category = "Server Browser")
 	TArray<F_ServerInfo> ServerList;
 
-	/**
-	 * Sends a request to refresh the server list.
-	 * This would typically trigger an async call to a backend or online subsystem.
-	 */
 	UFUNCTION(BlueprintCallable, Category = "Server Browser")
 	void RequestServerListRefresh();
 
-	/**
-	 * Joins the selected server session.
-	 * @param SessionSearchResult The search result containing session info
-	 */
 	void JoinSession(const FOnlineSessionSearchResult& SessionSearchResult);
 
 	// Filter properties
@@ -118,34 +90,27 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Server Browser|Filters")
 	bool bSearchLAN = true;
 
-	/** Apply current filters and refresh the displayed list */
 	UFUNCTION(BlueprintCallable, Category = "Server Browser")
 	void ApplyFilters();
 
-	// Friend class to allow FindGameWidget to access AllFoundServers
 	friend class US_UI_FindGameWidget;
 
 private:
-	/** Callback for when session search completes */
-	void OnFindSessionsComplete(bool bWasSuccessful);
+	// Callbacks for Advanced Sessions proxy
+	UFUNCTION()
+	void OnFindSessionsSuccess(const TArray<FBlueprintSessionResult>& SearchResults);
+	UFUNCTION()
+	void OnFindSessionsFailure(const TArray<FBlueprintSessionResult>& SearchResults);
 
-	/** Callback for when join session completes */
+	// Callback for when join session completes
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
-	/** Active session search object */
-	TSharedPtr<FOnlineSessionSearch> SessionSearch;
-
-	/** Cached list of all found servers before filtering */
 	UPROPERTY()
 	TArray<TObjectPtr<US_UI_VM_ServerListEntry>> AllFoundServers;
 
-	/** Delegate handles for cleanup */
-	FDelegateHandle FindSessionsCompleteDelegateHandle;
 	FDelegateHandle JoinSessionCompleteDelegateHandle;
 
-	/** Updates the visible server list based on current filters */
 	void UpdateFilteredServerList();
 
-	/** Checks if a server passes the current filter criteria */
 	bool PassesFilters(const TObjectPtr<US_UI_VM_ServerListEntry>& Entry) const;
 };

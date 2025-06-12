@@ -35,8 +35,9 @@ public class StrafeUI : ModuleRules
 				"DeveloperSettings",
 				"AssetRegistry",
                 "OnlineSubsystem",
-                "OnlineSubsystemUtils",
-				"OnlineSubsystemSteam"
+				"OnlineSubsystemSteam",
+                "AdvancedSessions",
+                "AdvancedSteamSessions"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -49,7 +50,8 @@ public class StrafeUI : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-                "RenderCore"
+                "RenderCore",
+                "OnlineSubsystemUtils",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

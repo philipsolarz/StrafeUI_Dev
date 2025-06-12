@@ -4,12 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "ViewModel/S_UI_ViewModelBase.h"
-#include "OnlineSessionSettings.h"
-#include "Interfaces/OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h" // Include for FOnDestroySessionCompleteDelegate
 #include "S_UI_VM_CreateGame.generated.h"
 
 class US_UI_Settings;
-struct FStrafeGameModeInfo;
 
 UCLASS(BlueprintType)
 class STRAFEUI_API US_UI_VM_CreateGame : public US_UI_ViewModelBase
@@ -75,26 +73,22 @@ public:
 	float RespawnTime = 5.0f;
 
 private:
-	/** Callback for when session creation completes */
-	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
-
-	/** Callback for when a previous session is destroyed before creating a new one. */
-	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
-
-	/** Callback for when the session has been started */
-	void OnStartSessionComplete(FName SessionName, bool bWasSuccessful);
-
-	/** Contains the actual logic to create the session settings and trigger the creation. */
+	/** Starts the session creation process using Advanced Sessions proxies. */
 	void CreateNewSession();
 
-	/** Stores the delegate handle for cleanup */
-	FDelegateHandle CreateSessionCompleteDelegateHandle;
+	/** Called when the pre-creation cleanup (session destruction) is complete. */
+	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
-	/** Delegate handle for the destroy session callback. */
+	/** Called when the Advanced Sessions proxy successfully creates the session. */
+	UFUNCTION()
+	void OnCreateSessionSuccess();
+
+	/** Called when the Advanced Sessions proxy fails to create the session. */
+	UFUNCTION()
+	void OnCreateSessionFailure();
+
+	/** Handle for the destroy session delegate */
 	FDelegateHandle DestroySessionCompleteDelegateHandle;
-
-	/** Delegate handle for the start session callback. */
-	FDelegateHandle StartSessionCompleteDelegateHandle;
 
 	UPROPERTY()
 	TWeakObjectPtr<const US_UI_Settings> UISettings;

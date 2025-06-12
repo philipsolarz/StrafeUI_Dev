@@ -13,8 +13,8 @@ FORCEINLINE bool operator==(const FBlueprintSessionResult& A, const FBlueprintSe
 	return (A.OnlineResult.IsValid() == B.OnlineResult.IsValid() && (A.OnlineResult.GetSessionIdStr() == B.OnlineResult.GetSessionIdStr()));
 }
 
-UCLASS(MinimalAPI)
-class UFindSessionsCallbackProxyAdvanced : public UOnlineBlueprintCallProxyBase
+UCLASS()
+class ADVANCEDSESSIONS_API UFindSessionsCallbackProxyAdvanced : public UOnlineBlueprintCallProxyBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -27,28 +27,14 @@ class UFindSessionsCallbackProxyAdvanced : public UOnlineBlueprintCallProxyBase
 	FBlueprintFindSessionsResultDelegate OnFailure;
 
 	// Searches for advertised sessions with the default online subsystem and includes an array of filters
-	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AutoCreateRefTerm="Filters"), Category = "Online|AdvancedSessions")
-	static UFindSessionsCallbackProxyAdvanced* FindSessionsAdvanced(UObject* WorldContextObject, class APlayerController* PlayerController, int32 MaxResults, bool bUseLAN, EBPServerPresenceSearchType ServerTypeToSearch, const TArray<FSessionsSearchSetting> &Filters, bool bEmptyServersOnly = false, bool bNonEmptyServersOnly = false, bool bSecureServersOnly = false, /*bool bSearchLobbies = true,*/ int MinSlotsAvailable = 0);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AutoCreateRefTerm = "Filters"), Category = "Online|AdvancedSessions")
+	static UFindSessionsCallbackProxyAdvanced* FindSessionsAdvanced(UObject* WorldContextObject, class APlayerController* PlayerController, int32 MaxResults, bool bUseLAN, EBPServerPresenceSearchType ServerTypeToSearch, const TArray<FSessionsSearchSetting>& Filters, bool bEmptyServersOnly = false, bool bNonEmptyServersOnly = false, bool bSecureServersOnly = false, /*bool bSearchLobbies = true,*/ int MinSlotsAvailable = 0);
 
-	static bool CompareVariants(const FVariantData &A, const FVariantData &B, EOnlineComparisonOpRedux Comparator);
-	
+	static bool CompareVariants(const FVariantData& A, const FVariantData& B, EOnlineComparisonOpRedux Comparator);
+
 	// Filters an array of session results by the given search parameters, returns a new array with the filtered results
 	UFUNCTION(BluePrintCallable, meta = (Category = "Online|AdvancedSessions"))
-	static void FilterSessionResults(const TArray<FBlueprintSessionResult> &SessionResults, const TArray<FSessionsSearchSetting> &Filters, TArray<FBlueprintSessionResult> &FilteredResults);
-	
-	// Removed, the default built in versions work fine in the normal FindSessionsCallbackProxy
-	/*UFUNCTION(BlueprintPure, Category = "Online|Session")
-	static int32 GetPingInMs(const FBlueprintSessionResult& Result);
-
-	UFUNCTION(BlueprintPure, Category = "Online|Session")
-	static FString GetServerName(const FBlueprintSessionResult& Result);
-
-	UFUNCTION(BlueprintPure, Category = "Online|Session")
-	static int32 GetCurrentPlayers(const FBlueprintSessionResult& Result);
-
-	UFUNCTION(BlueprintPure, Category = "Online|Session")
-	static int32 GetMaxPlayers(const FBlueprintSessionResult& Result);*/
-
+	static void FilterSessionResults(const TArray<FBlueprintSessionResult>& SessionResults, const TArray<FSessionsSearchSetting>& Filters, TArray<FBlueprintSessionResult>& FilteredResults);
 
 	// UOnlineBlueprintCallProxyBase interface
 	virtual void Activate() override;
@@ -97,9 +83,6 @@ private:
 
 	// Search for secure servers only
 	bool bSecureServersOnly;
-
-	// Search through lobbies
-	//bool bSearchLobbies;
 
 	// Min slots requires to search
 	int MinSlotsAvailable;

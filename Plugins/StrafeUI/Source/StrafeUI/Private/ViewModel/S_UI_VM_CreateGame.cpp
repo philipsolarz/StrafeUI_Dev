@@ -5,10 +5,12 @@
 #include "S_UI_Subsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "OnlineSubsystem.h"
-#include "OnlineSessionSettings.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "Engine/World.h"
 #include "Data/S_UI_ScreenTypes.h"
+#include "AdvancedSessionsLibrary.h"
+#include "CreateSessionCallbackProxyAdvanced.h"
+// No longer including DestroySessionCallbackProxy.h
 
 // Define custom session settings keys
 #define SETTING_GAMEMODE FName(TEXT("GAMEMODE"))
@@ -30,26 +32,23 @@ void US_UI_VM_CreateGame::Initialize(const US_UI_Settings* InSettings)
 		return;
 	}
 
-	// Populate the game mode display names from the settings
 	for (const FStrafeGameModeInfo& GameModeInfo : UISettings->AvailableGameModes)
 	{
 		GameModeDisplayNames.Add(GameModeInfo.DisplayName.ToString());
 	}
 
-	// Set the initial selection to the first available game mode
 	if (GameModeDisplayNames.Num() > 0)
 	{
 		OnGameModeChanged(GameModeDisplayNames[0]);
 	}
 	else
 	{
-		BroadcastDataChanged(); // Ensure UI is at least cleared if no modes are defined
+		BroadcastDataChanged();
 	}
 }
 
 void US_UI_VM_CreateGame::CreateGame()
 {
-	// Get the Session Interface
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (!OnlineSubsystem)
 	{
@@ -64,34 +63,27 @@ void US_UI_VM_CreateGame::CreateGame()
 		return;
 	}
 
-	// Check if a session already exists
 	if (SessionInterface->GetNamedSession(NAME_GameSession))
 	{
 		UE_LOG(LogTemp, Log, TEXT("Found an existing session. Destroying it before creating a new one."));
 
-		// Bind the completion delegate
-		DestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(
-			FOnDestroySessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnDestroySessionComplete)
-		);
-
-		// Destroy the existing session
+		// Call the interface directly instead of using the proxy
+		DestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(FOnDestroySessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnDestroySessionComplete));
 		if (!SessionInterface->DestroySession(NAME_GameSession))
 		{
-			// If the call fails, clear the delegate and log an error
+			// If the call fails, clear the delegate and proceed as if it succeeded to avoid getting stuck.
 			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
-			UE_LOG(LogTemp, Error, TEXT("Failed to submit session destroy request."));
+			OnDestroySessionComplete(NAME_GameSession, false);
 		}
 	}
 	else
 	{
-		// If no session exists, proceed directly to creation
 		CreateNewSession();
 	}
 }
 
 void US_UI_VM_CreateGame::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	// Clean up the delegate
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
@@ -102,25 +94,14 @@ void US_UI_VM_CreateGame::OnDestroySessionComplete(FName SessionName, bool bWasS
 		}
 	}
 
-	if (bWasSuccessful)
-	{
-		UE_LOG(LogTemp, Log, TEXT("Successfully destroyed previous session."));
-		// Now that the old session is gone, create the new one.
-		CreateNewSession();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Failed to destroy previous session."));
-	}
+	UE_LOG(LogTemp, Log, TEXT("Destroy session completed (Success: %s). Proceeding with creation."), bWasSuccessful ? TEXT("true") : TEXT("false"));
+	CreateNewSession();
 }
 
 void US_UI_VM_CreateGame::CreateNewSession()
 {
 	if (!UISettings.IsValid()) return;
 
-	// This function now contains the logic that was originally in CreateGame()
-
-	// Find the full GameModeInfo struct from the selected display name
 	const FStrafeGameModeInfo* SelectedGameModeInfo = UISettings->AvailableGameModes.FindByPredicate(
 		[this](const FStrafeGameModeInfo& Info)
 		{
@@ -133,11 +114,9 @@ void US_UI_VM_CreateGame::CreateNewSession()
 		return;
 	}
 
-	// Find the map asset from the selected map display name
 	const TSoftObjectPtr<UWorld>* SelectedMapAsset = SelectedGameModeInfo->CompatibleMaps.FindByPredicate(
 		[this](const TSoftObjectPtr<UWorld>& MapAsset)
 		{
-			// Get the asset name from the soft pointer path
 			return FPaths::GetBaseFilename(MapAsset.ToString()) == SelectedMapName;
 		});
 
@@ -156,232 +135,85 @@ void US_UI_VM_CreateGame::CreateNewSession()
 
 	CachedMapAssetPath = (*SelectedMapAsset).ToSoftObjectPath().GetLongPackageName();
 
-	// Get the Online Subsystem
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (!OnlineSubsystem)
-	{
-		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No online subsystem found"));
-		return;
-	}
+	TArray<FSessionPropertyKeyPair> ExtraSettings;
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyString(SETTING_MAPNAME, SelectedMapName));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyString(SETTING_GAMENAME, GameName));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyString(SETTING_GAMEMODE, SelectedGameModeName));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyString(SETTING_SERVERDESC, ServerDescription));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyBool(SETTING_FRIENDLYFIRE, bAllowFriendlyFire));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyBool(SETTING_SPECTATORS, bAllowSpectators));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyInt(SETTING_TIMELIMIT, TimeLimit));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyInt(SETTING_SCORELIMIT, ScoreLimit));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyFloat(SETTING_RESPAWNTIME, RespawnTime));
+	ExtraSettings.Add(UAdvancedSessionsLibrary::MakeLiteralSessionPropertyString(SETTING_GAMETAG, FString("StrafeGame")));
 
-	// Get the Session Interface
-	IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-	if (!SessionInterface.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: Session interface is invalid"));
-		return;
-	}
-
-	// Get the local player
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No world context"));
-		return;
-	}
-
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->GetLocalPlayer())
-	{
-		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: No local player controller"));
-		return;
-	}
-
-	// Create the session settings
-	TSharedPtr<FOnlineSessionSettings> SessionSettings = MakeShareable(new FOnlineSessionSettings());
-
-	SessionSettings->NumPublicConnections = 16;
-	SessionSettings->NumPrivateConnections = 4;
-	SessionSettings->bShouldAdvertise = true;
-	SessionSettings->bAllowJoinInProgress = true;
-	SessionSettings->bIsLANMatch = false;
-	SessionSettings->bIsDedicated = false;
-	SessionSettings->bUsesPresence = true;
-	SessionSettings->bUseLobbiesIfAvailable = true;
-	SessionSettings->bAllowInvites = true;
-	SessionSettings->bAllowJoinViaPresence = true;
-	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
-
-	// Basic settings
-	//SessionSettings->NumPublicConnections = MaxPlayers;
-	//SessionSettings->NumPrivateConnections = 0;
-	//SessionSettings->bShouldAdvertise = true;
-	//SessionSettings->bAllowJoinInProgress = true;
-	//SessionSettings->bIsLANMatch = bIsLANMatch;
-	//SessionSettings->bIsDedicated = bIsDedicatedServer;
-	//SessionSettings->bUsesPresence = !bIsDedicatedServer;
-	//SessionSettings->bUseLobbiesIfAvailable = bIsLANMatch ? false : !bIsDedicatedServer;
-	//SessionSettings->bAllowInvites = true;
-	//SessionSettings->bAllowJoinViaPresence = !bIsDedicatedServer;
-	//SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
-	//SessionSettings->BuildUniqueId = 1;
-
-	// Custom settings - store all our game-specific data
-	SessionSettings->Set(SETTING_MAPNAME, SelectedMapName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_GAMENAME, GameName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_GAMEMODE, SelectedGameModeName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_SERVERDESC, ServerDescription, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_FRIENDLYFIRE, bAllowFriendlyFire, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_SPECTATORS, bAllowSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_TIMELIMIT, TimeLimit, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_SCORELIMIT, ScoreLimit, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_RESPAWNTIME, RespawnTime, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	SessionSettings->Set(SETTING_GAMETAG, FString("StrafeGame"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-
-	// If password protected, store the password (Note: In production, you'd want to handle this more securely)
-	if (!Password.IsEmpty())
-	{
-		SessionSettings->Set(FName(TEXT("PASSWORD")), Password, EOnlineDataAdvertisementType::DontAdvertise);
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("--- Creating Game Session with Settings ---"));
-	UE_LOG(LogTemp, Log, TEXT("Game Name: %s"), *GameName);
-	UE_LOG(LogTemp, Log, TEXT("Map Name: %s"), *SelectedMapName);
-	UE_LOG(LogTemp, Log, TEXT("Game Mode: %s"), *SelectedGameModeName);
-	UE_LOG(LogTemp, Log, TEXT("Max Players: %d"), MaxPlayers);
-	UE_LOG(LogTemp, Log, TEXT("Is LAN Match: %s"), (SessionSettings->bIsLANMatch ? TEXT("true") : TEXT("false")));
-	UE_LOG(LogTemp, Log, TEXT("Is Dedicated: %s"), (bIsDedicatedServer ? TEXT("true") : TEXT("false")));
-	UE_LOG(LogTemp, Log, TEXT("Uses Presence: %s"), (SessionSettings->bUsesPresence ? TEXT("true") : TEXT("false")));
-	UE_LOG(LogTemp, Log, TEXT("Should Advertise: %s"), (SessionSettings->bShouldAdvertise ? TEXT("true") : TEXT("false")));
-	UE_LOG(LogTemp, Log, TEXT("Password Protected: %s"), (!Password.IsEmpty() ? TEXT("true") : TEXT("false")));
-	UE_LOG(LogTemp, Log, TEXT("Game Tag: %s"), TEXT("StrafeGame"));
-	UE_LOG(LogTemp, Log, TEXT("-----------------------------------------"));
-
-
-	// Bind the completion delegate
-	CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(
-		FOnCreateSessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnCreateSessionComplete)
+	UCreateSessionCallbackProxyAdvanced* Proxy = UCreateSessionCallbackProxyAdvanced::CreateAdvancedSession(
+		this,
+		ExtraSettings,
+		GetWorld()->GetFirstPlayerController(),
+		MaxPlayers,
+		0,
+		bIsLANMatch,
+		true,
+		bIsDedicatedServer,
+		true,
+		true,
+		false,
+		false,
+		false,
+		true,
+		true,
+		true
 	);
 
-	// Create the session
-	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-	if (!SessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings))
+	Proxy->OnSuccess.AddDynamic(this, &US_UI_VM_CreateGame::OnCreateSessionSuccess);
+	Proxy->OnFailure.AddDynamic(this, &US_UI_VM_CreateGame::OnCreateSessionFailure);
+	Proxy->Activate();
+
+	UE_LOG(LogTemp, Log, TEXT("Attempting to create session via Advanced Sessions proxy..."));
+}
+
+void US_UI_VM_CreateGame::OnCreateSessionSuccess()
+{
+	UE_LOG(LogTemp, Log, TEXT("Session created and started successfully via proxy. Traveling to map..."));
+
+	UWorld* World = GetWorld();
+	if (World && CachedGameModeClass)
 	{
-		UE_LOG(LogTemp, Error, TEXT("CreateGame failed: Failed to create session"));
-
-		// Clean up the delegate since we won't get a callback
-		SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
-
-		// Show error modal
-		if (UWorld* WorldContext = GetWorld())
-		{
-			if (US_UI_Subsystem* UISubsystem = WorldContext->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-			{
-				F_UIModalPayload Payload;
-				Payload.Message = FText::FromString(TEXT("Failed to create game session. Please try again."));
-				Payload.ModalType = E_UIModalType::OK;
-				UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-			}
-		}
+		FString TravelURL = FString::Printf(TEXT("%s?listen?game=%s"), *CachedMapAssetPath, *CachedGameModeClass->GetPathName());
+		World->ServerTravel(TravelURL);
 	}
 }
 
-void US_UI_VM_CreateGame::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+void US_UI_VM_CreateGame::OnCreateSessionFailure()
 {
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
+	UE_LOG(LogTemp, Error, TEXT("Failed to create session via Advanced Sessions proxy."));
+
+	if (UWorld* World = GetWorld())
 	{
-		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-		if (SessionInterface.IsValid())
+		if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
 		{
-			// Clean up the delegate regardless of success
-			SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
-
-			if (bWasSuccessful)
-			{
-				UE_LOG(LogTemp, Log, TEXT("Session '%s' created successfully. Starting session..."), *SessionName.ToString());
-
-				if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
-				{
-					const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-					if (LocalPlayer)
-					{
-						SessionInterface->RegisterPlayer(
-							SessionName,
-							*LocalPlayer->GetPreferredUniqueNetId(),
-							/*bWasInvited=*/false);
-					}
-				}
-
-				// Bind the start session delegate
-				StartSessionCompleteDelegateHandle = SessionInterface->AddOnStartSessionCompleteDelegate_Handle(
-					FOnStartSessionCompleteDelegate::CreateUObject(this, &US_UI_VM_CreateGame::OnStartSessionComplete)
-				);
-
-				// Start the session
-				if (!SessionInterface->StartSession(SessionName))
-				{
-					UE_LOG(LogTemp, Error, TEXT("Failed to start session."));
-					SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
-				}
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("Failed to create session"));
-
-				// Show error modal
-				if (UWorld* World = GetWorld())
-				{
-					if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-					{
-						F_UIModalPayload Payload;
-						Payload.Message = FText::FromString(TEXT("Failed to create game session. Please check your connection and try again."));
-						Payload.ModalType = E_UIModalType::OK;
-						UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-					}
-				}
-			}
+			F_UIModalPayload Payload;
+			Payload.Message = FText::FromString(TEXT("Failed to create game session. Please check your connection and try again."));
+			Payload.ModalType = E_UIModalType::OK;
+			UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
 		}
-	}
-}
-
-void US_UI_VM_CreateGame::OnStartSessionComplete(FName SessionName, bool bWasSuccessful)
-{
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
-	{
-		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-		if (SessionInterface.IsValid())
-		{
-			// Clean up the delegate
-			SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
-		}
-	}
-
-	if (bWasSuccessful)
-	{
-		UE_LOG(LogTemp, Log, TEXT("Session '%s' started successfully. Traveling to map..."), *SessionName.ToString());
-
-		// Travel to the map as a listen server
-		UWorld* World = GetWorld();
-		if (World && CachedGameModeClass)
-		{
-			FString TravelURL = FString::Printf(TEXT("%s?listen?game=%s"), *CachedMapAssetPath, *CachedGameModeClass->GetPathName());
-			World->ServerTravel(TravelURL);
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to start session."));
 	}
 }
 
 void US_UI_VM_CreateGame::OnGameModeChanged(FString InSelectedGameModeName)
 {
 	SelectedGameModeName = InSelectedGameModeName;
-	UE_LOG(LogTemp, Warning, TEXT("[CreateGameVM] OnGameModeChanged: ViewModel's game mode is now '%s'. Broadcasting change."), *SelectedGameModeName);
 	MapDisplayNames.Empty();
 
 	if (!UISettings.IsValid()) return;
 
-	// Find the game mode info struct that matches the new selection
 	const FStrafeGameModeInfo* GameModeInfo = UISettings->AvailableGameModes.FindByPredicate(
 		[this](const FStrafeGameModeInfo& Info)
 		{
 			return Info.DisplayName.ToString() == SelectedGameModeName;
 		});
 
-	// If found, populate the map display names from its compatible maps list
 	if (GameModeInfo)
 	{
 		for (const TSoftObjectPtr<UWorld>& MapAsset : GameModeInfo->CompatibleMaps)
@@ -390,7 +222,6 @@ void US_UI_VM_CreateGame::OnGameModeChanged(FString InSelectedGameModeName)
 		}
 	}
 
-	// Default to the first map in the list if available
 	if (MapDisplayNames.Num() > 0)
 	{
 		SelectedMapName = MapDisplayNames[0];

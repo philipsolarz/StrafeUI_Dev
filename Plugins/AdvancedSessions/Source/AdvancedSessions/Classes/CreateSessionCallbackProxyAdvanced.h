@@ -6,8 +6,8 @@
 #include "BlueprintDataDefinitions.h"
 #include "CreateSessionCallbackProxyAdvanced.generated.h"
 
-UCLASS(MinimalAPI)
-class UCreateSessionCallbackProxyAdvanced : public UOnlineBlueprintCallProxyBase
+UCLASS()
+class ADVANCEDSESSIONS_API UCreateSessionCallbackProxyAdvanced : public UOnlineBlueprintCallProxyBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -20,23 +20,25 @@ class UCreateSessionCallbackProxyAdvanced : public UOnlineBlueprintCallProxyBase
 	FEmptyOnlineDelegate OnFailure;
 
 	/**
-	 *    Creates a session with the default online subsystem with advanced optional inputs, for dedicated servers leave UsePresence as false and set IsDedicatedServer to true. Dedicated servers don't use presence.
-	 *    @param PublicConnections	When doing a 'listen' server, this must be >=2 (ListenServer itself counts as a connection)
-	 *    @param bUseLAN			When you want to play LAN, the level to play on must be loaded with option 'bIsLanMatch'
+	 * Creates a session with the default online subsystem with advanced optional inputs, for dedicated servers leave UsePresence as false and set IsDedicatedServer to true. Dedicated servers don't use presence.
+	 * @param PublicConnections	When doing a 'listen' server, this must be >=2 (ListenServer itself counts as a connection)
+	 * @param bUseLAN			When you want to play LAN, the level to play on must be loaded with option 'bIsLanMatch'
 	 *	  @param bUseLobbiesIfAvailable Used to flag the subsystem to use a lobby api instead of general hosting if the API supports it, generally true on steam for listen servers and false for dedicated
 	 *	Must be true for a 'listen' server (Map must be loaded with option 'listen'), false for a 'dedicated' server.
 	 *	  @param bShouldAdvertise	Set to true when the OnlineSubsystem should list your server when someone is searching for servers. Otherwise the server is hidden and only join via invite is possible.
 	 *	  @param bUseLobbiesVoiceChatIfAvailable Set to true to setup voice chat lobbies if the API supports it
-	 * 	  @param bStartAfterCreate Set to true to start the session after it's created. If false you need to manually call StartSession when ready.
+	 * @param bStartAfterCreate Set to true to start the session after it's created. If false you need to manually call StartSession when ready.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly = "true", WorldContext="WorldContextObject",AutoCreateRefTerm="ExtraSettings"), Category = "Online|AdvancedSessions")
-		static UCreateSessionCallbackProxyAdvanced* CreateAdvancedSession(UObject* WorldContextObject, const TArray<FSessionPropertyKeyPair>& ExtraSettings, class APlayerController* PlayerController = NULL, int32 PublicConnections = 100, int32 PrivateConnections = 0, bool bUseLAN = false, bool bAllowInvites = true, bool bIsDedicatedServer = false, /*bool bUsePresence = true,*/ bool bUseLobbiesIfAvailable = true, bool bAllowJoinViaPresence = true, bool bAllowJoinViaPresenceFriendsOnly = false, bool bAntiCheatProtected = false, bool bUsesStats = false, bool bShouldAdvertise = true, bool bUseLobbiesVoiceChatIfAvailable = false, bool bStartAfterCreate = true);
+	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AutoCreateRefTerm = "ExtraSettings"), Category = "Online|AdvancedSessions")
+	static UCreateSessionCallbackProxyAdvanced* CreateAdvancedSession(UObject* WorldContextObject, const TArray<FSessionPropertyKeyPair>& ExtraSettings, class APlayerController* PlayerController = NULL, int32 PublicConnections = 100, int32 PrivateConnections = 0, bool bUseLAN = false, bool bAllowInvites = true, bool bIsDedicatedServer = false, /*bool bUsePresence = true,*/ bool bUseLobbiesIfAvailable = true, bool bAllowJoinViaPresence = true, bool bAllowJoinViaPresenceFriendsOnly = false, bool bAntiCheatProtected = false, bool bUsesStats = false, bool bShouldAdvertise = true, bool bUseLobbiesVoiceChatIfAvailable = false, bool bStartAfterCreate = true);
 
 	// UOnlineBlueprintCallProxyBase interface
 	virtual void Activate() override;
 	// End of UOnlineBlueprintCallProxyBase interface
 
-private:
+//private: // Was changed to public to allow for direct setting of the array
+public:
+
 	// Internal callback when session creation completes, optionally calls StartSession
 	void OnCreateCompleted(FName SessionName, bool bWasSuccessful);
 
@@ -104,4 +106,3 @@ private:
 	// The world context object in which this call is taking place
 	TWeakObjectPtr<UObject> WorldContextObject;
 };
-
