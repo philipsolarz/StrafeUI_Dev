@@ -5,8 +5,10 @@
 #include "CoreMinimal.h"
 #include "ViewModel/S_UI_ViewModelBase.h"
 #include "OnlineSessionSettings.h"
-#include "Interfaces/OnlineSessionInterface.h"
+#include "StrafeMultiplayer/Public/MultiplayerSessionTypes.h"
 #include "S_UI_VM_ServerBrowser.generated.h"
+
+class UStrafeMultiplayerSubsystem;
 
 /**
  * @struct F_ServerInfo
@@ -75,7 +77,13 @@ class STRAFEUI_API US_UI_VM_ServerBrowser : public US_UI_ViewModelBase
 	GENERATED_BODY()
 
 public:
+	US_UI_VM_ServerBrowser();
 	virtual ~US_UI_VM_ServerBrowser();
+
+	/**
+	 * Initialize the view model
+	 */
+	void Initialize();
 
 	/**
 	 * The list of servers to be displayed in the UI.
@@ -116,7 +124,7 @@ public:
 	int32 FilterMaxPing = 999;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Server Browser|Filters")
-	bool bSearchLAN = true;
+	bool bSearchLAN = false;
 
 	/** Apply current filters and refresh the displayed list */
 	UFUNCTION(BlueprintCallable, Category = "Server Browser")
@@ -127,21 +135,18 @@ public:
 
 private:
 	/** Callback for when session search completes */
-	void OnFindSessionsComplete(bool bWasSuccessful);
+	void OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SessionResults, EMultiplayerSessionResult Result);
 
 	/** Callback for when join session completes */
-	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
-
-	/** Active session search object */
-	TSharedPtr<FOnlineSessionSearch> SessionSearch;
+	void OnJoinSessionComplete(EMultiplayerSessionResult Result, const FString& ConnectString);
 
 	/** Cached list of all found servers before filtering */
 	UPROPERTY()
 	TArray<TObjectPtr<US_UI_VM_ServerListEntry>> AllFoundServers;
 
-	/** Delegate handles for cleanup */
-	FDelegateHandle FindSessionsCompleteDelegateHandle;
-	FDelegateHandle JoinSessionCompleteDelegateHandle;
+	/** Reference to the multiplayer subsystem */
+	UPROPERTY()
+	TObjectPtr<UStrafeMultiplayerSubsystem> MultiplayerSubsystem;
 
 	/** Updates the visible server list based on current filters */
 	void UpdateFilteredServerList();

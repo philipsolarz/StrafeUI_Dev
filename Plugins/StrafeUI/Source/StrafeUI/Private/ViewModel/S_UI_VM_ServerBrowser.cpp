@@ -2,46 +2,53 @@
 
 #include "ViewModel/S_UI_VM_ServerBrowser.h"
 #include "S_UI_Subsystem.h"
-#include "OnlineSubsystem.h"
-
-#include "OnlineSessionSettings.h"
-#include "Interfaces/OnlineSessionInterface.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/PlayerController.h"
 #include "Data/S_UI_ScreenTypes.h"
-#include "Online/OnlineSessionNames.h"
+#include "StrafeMultiplayer/Public/StrafeMultiplayerSubsystem.h"
+#include "StrafeMultiplayer/Public/MultiplayerSessionTypes.h"
 
-// Match the custom session settings keys from CreateGame
-#define SETTING_GAMEMODE FName(TEXT("GAMEMODE"))
-#define SETTING_MAPNAME FName(TEXT("MAPNAME"))
-#define SETTING_GAMENAME FName(TEXT("GAMENAME"))
-#define SETTING_SERVERDESC FName(TEXT("SERVERDESC"))
-#define SETTING_FRIENDLYFIRE FName(TEXT("FRIENDLYFIRE"))
-#define SETTING_SPECTATORS FName(TEXT("SPECTATORS"))
-#define SETTING_TIMELIMIT FName(TEXT("TIMELIMIT"))
-#define SETTING_SCORELIMIT FName(TEXT("SCORELIMIT"))
-#define SETTING_RESPAWNTIME FName(TEXT("RESPAWNTIME"))
-// *** FIX: Add a unique tag to filter sessions by, preventing other games on Steam App ID 480 from showing up ***
-#define SETTING_GAMETAG FName(TEXT("GAMETAG"))
+US_UI_VM_ServerBrowser::US_UI_VM_ServerBrowser()
+{
+	// Constructor
+}
 
 US_UI_VM_ServerBrowser::~US_UI_VM_ServerBrowser()
 {
-	// Clean up any pending delegates
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
+	// Clean up delegates if needed
+	if (MultiplayerSubsystem)
 	{
-		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-		if (SessionInterface.IsValid())
+		// Delegates are automatically cleaned up when the object is destroyed
+	}
+}
+
+void US_UI_VM_ServerBrowser::Initialize()
+{
+	// Get the StrafeMultiplayer subsystem and bind delegates
+	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	{
+		MultiplayerSubsystem = GameInstance->GetSubsystem<UStrafeMultiplayerSubsystem>();
+		if (MultiplayerSubsystem)
 		{
-			SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
-			SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
+			// Bind to find sessions complete delegates
+			MultiplayerSubsystem->OnFindLobbiesComplete.AddUObject(this, &US_UI_VM_ServerBrowser::OnFindSessionsComplete);
+			MultiplayerSubsystem->OnFindDedicatedServersComplete.AddUObject(this, &US_UI_VM_ServerBrowser::OnFindSessionsComplete);
+
+			// Bind to join session complete delegate
+			MultiplayerSubsystem->OnJoinSessionComplete.AddUObject(this, &US_UI_VM_ServerBrowser::OnJoinSessionComplete);
 		}
 	}
 }
 
 void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 {
+	if (!MultiplayerSubsystem)
+	{
+		UE_LOG(LogTemp, Error, TEXT("No multiplayer subsystem found"));
+		return;
+	}
+
 	UE_LOG(LogTemp, Log, TEXT("Refreshing server list..."));
 
 	// Clear existing lists
@@ -49,180 +56,29 @@ void US_UI_VM_ServerBrowser::RequestServerListRefresh()
 	AllFoundServers.Empty();
 	BroadcastDataChanged();
 
-	// Get the Online Subsystem
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (!OnlineSubsystem)
+	// Search for both lobbies and dedicated servers
+	if (bSearchLAN)
 	{
-		UE_LOG(LogTemp, Error, TEXT("No online subsystem found"));
-
-		// Show error modal
-		if (UWorld* World = GetWorld())
-		{
-			if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-			{
-				F_UIModalPayload Payload;
-				Payload.Message = FText::FromString(TEXT("Online services are not available. Please check your connection."));
-				Payload.ModalType = E_UIModalType::OK;
-				UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-			}
-		}
-		return;
-	}
-
-	// Get the Session Interface
-	IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-	if (!SessionInterface.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Session interface is invalid"));
-		return;
-	}
-
-	// Create the search object
-	SessionSearch = MakeShareable(new FOnlineSessionSearch());
-	if (!SessionSearch.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to create session search object"));
-		return;
-	}
-
-	// Configure the search
-	SessionSearch->bIsLanQuery = bSearchLAN;
-	SessionSearch->MaxSearchResults = 10000;
-	//SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
-
-	// *** FIX: Add a query filter for our unique game tag ***
-	//SessionSearch->QuerySettings.Set(SETTING_GAMETAG, FString("StrafeGame"), EOnlineComparisonOp::Equals);
-
-
-	// Get the local player
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogTemp, Error, TEXT("No world context"));
-		return;
-	}
-
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->GetLocalPlayer())
-	{
-		UE_LOG(LogTemp, Error, TEXT("No local player controller"));
-		return;
-	}
-
-	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-
-	// Bind the completion delegate
-	FindSessionsCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(
-		FOnFindSessionsCompleteDelegate::CreateUObject(this, &US_UI_VM_ServerBrowser::OnFindSessionsComplete)
-	);
-
-	// Start the search
-	if (!SessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef()))
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to start session search"));
-
-		// Clean up the delegate since we won't get a callback
-		SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
-
-		// Show error modal
-		if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-		{
-			F_UIModalPayload Payload;
-			Payload.Message = FText::FromString(TEXT("Failed to search for game sessions. Please try again."));
-			Payload.ModalType = E_UIModalType::OK;
-			UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-		}
-	}
-}
-
-void US_UI_VM_ServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
-{
-	// Clean up the delegate
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
-	{
-		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-		if (SessionInterface.IsValid())
-		{
-			SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
-		}
-	}
-
-	// Clear the lists
-	AllFoundServers.Empty();
-
-	if (bWasSuccessful && SessionSearch.IsValid())
-	{
-		UE_LOG(LogTemp, Log, TEXT("Session search complete. Found %d sessions"), SessionSearch->SearchResults.Num());
-
-		// Process each found session
-		for (const FOnlineSessionSearchResult& SearchResult : SessionSearch->SearchResults)
-		{
-			US_UI_VM_ServerListEntry* NewEntry = NewObject<US_UI_VM_ServerListEntry>(this);
-
-			// Store the full search result for joining later
-			NewEntry->SessionSearchResult = SearchResult;
-
-			// Extract basic info
-			F_ServerInfo& ServerInfo = NewEntry->ServerInfo;
-
-			// Get player counts
-			ServerInfo.PlayerCount = SearchResult.Session.SessionSettings.NumPublicConnections - SearchResult.Session.NumOpenPublicConnections;
-			ServerInfo.MaxPlayers = SearchResult.Session.SessionSettings.NumPublicConnections;
-
-			// Get ping
-			ServerInfo.Ping = SearchResult.PingInMs;
-
-			// Get basic settings
-			ServerInfo.bIsPrivate = !SearchResult.Session.SessionSettings.bShouldAdvertise;
-			ServerInfo.bIsLAN = SearchResult.Session.SessionSettings.bIsLANMatch;
-
-			// Get custom session data
-			FString GameName;
-			if (SearchResult.Session.SessionSettings.Get(SETTING_GAMENAME, GameName))
-			{
-				ServerInfo.ServerName = FText::FromString(GameName);
-			}
-			else
-			{
-				ServerInfo.ServerName = FText::FromString(TEXT("Unknown Server"));
-			}
-
-			FString GameMode;
-			if (SearchResult.Session.SessionSettings.Get(SETTING_GAMEMODE, GameMode))
-			{
-				ServerInfo.GameMode = FText::FromString(GameMode);
-			}
-
-			FString MapName;
-			if (SearchResult.Session.SessionSettings.Get(SETTING_MAPNAME, MapName))
-			{
-				ServerInfo.CurrentMap = MapName;
-			}
-
-			FString Description;
-			if (SearchResult.Session.SessionSettings.Get(SETTING_SERVERDESC, Description))
-			{
-				ServerInfo.Description = FText::FromString(Description);
-			}
-
-			AllFoundServers.Add(NewEntry);
-		}
-
-		// Apply filters to show results
-		UpdateFilteredServerList();
+		// For LAN, just search for lobbies
+		MultiplayerSubsystem->FindLobbies();
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Session search failed or returned no results"));
+		// For online, search for both
+		MultiplayerSubsystem->FindLobbies();
+		MultiplayerSubsystem->FindDedicatedServers();
+	}
+}
 
-		// Clear the displayed list
-		ServerList.Empty();
-		BroadcastDataChanged();
+void US_UI_VM_ServerBrowser::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SessionResults, EMultiplayerSessionResult Result)
+{
+	if (Result != EMultiplayerSessionResult::Success)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Session search failed. Result: %d"), (int32)Result);
 
-		// Show modal if no servers found
-		if (bWasSuccessful && SessionSearch.IsValid() && SessionSearch->SearchResults.Num() == 0)
+		if (Result == EMultiplayerSessionResult::Find_NoResults)
 		{
+			// No servers found - show modal
 			if (UWorld* World = GetWorld())
 			{
 				if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
@@ -234,106 +90,108 @@ void US_UI_VM_ServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 				}
 			}
 		}
+		return;
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("Session search complete. Found %d sessions"), SessionResults.Num());
+
+	// Process each found session
+	for (const FOnlineSessionSearchResult& SearchResult : SessionResults)
+	{
+		US_UI_VM_ServerListEntry* NewEntry = NewObject<US_UI_VM_ServerListEntry>(this);
+
+		// Store the full search result for joining later
+		NewEntry->SessionSearchResult = SearchResult;
+
+		// Extract basic info
+		F_ServerInfo& ServerInfo = NewEntry->ServerInfo;
+
+		// Get player counts
+		ServerInfo.PlayerCount = SearchResult.Session.SessionSettings.NumPublicConnections - SearchResult.Session.NumOpenPublicConnections;
+		ServerInfo.MaxPlayers = SearchResult.Session.SessionSettings.NumPublicConnections;
+
+		// Get ping
+		ServerInfo.Ping = SearchResult.PingInMs;
+
+		// Get basic settings
+		ServerInfo.bIsPrivate = !SearchResult.Session.SessionSettings.bShouldAdvertise;
+		ServerInfo.bIsLAN = SearchResult.Session.SessionSettings.bIsLANMatch;
+
+		// Get custom session data using StrafeMultiplayer keys
+		FString GameMode;
+		if (SearchResult.Session.SessionSettings.Get(FName(TEXT("GAME_MODE")), GameMode))
+		{
+			ServerInfo.GameMode = FText::FromString(GameMode);
+		}
+		else
+		{
+			ServerInfo.GameMode = FText::FromString(TEXT("Unknown"));
+		}
+
+		FString MapName;
+		if (SearchResult.Session.SessionSettings.Get(FName(TEXT("MAP_NAME")), MapName))
+		{
+			ServerInfo.CurrentMap = MapName;
+		}
+		else
+		{
+			ServerInfo.CurrentMap = TEXT("Unknown");
+		}
+
+		// For server name, use the owner's name or a custom game name if available
+		FString GameName;
+		if (SearchResult.Session.SessionSettings.Get(FName(TEXT("GAME_NAME")), GameName))
+		{
+			ServerInfo.ServerName = FText::FromString(GameName);
+		}
+		else if (!SearchResult.Session.OwningUserName.IsEmpty())
+		{
+			ServerInfo.ServerName = FText::FromString(SearchResult.Session.OwningUserName + TEXT("'s Game"));
+		}
+		else
+		{
+			ServerInfo.ServerName = FText::FromString(TEXT("Unknown Server"));
+		}
+
+		// Check if it's a dedicated server
+		bool bIsDedicated = false;
+		SearchResult.Session.SessionSettings.Get(FName(TEXT("IS_DEDICATED")), bIsDedicated);
+
+		if (bIsDedicated)
+		{
+			// Override the server name for dedicated servers
+			ServerInfo.ServerName = FText::FromString(FString::Printf(TEXT("DEDI - %s (%s)"), *GameMode, *MapName));
+		}
+
+		AllFoundServers.Add(NewEntry);
+	}
+
+	// Apply filters to show results
+	UpdateFilteredServerList();
 }
 
 void US_UI_VM_ServerBrowser::JoinSession(const FOnlineSessionSearchResult& SessionSearchResult)
 {
-	// Get the Online Subsystem
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (!OnlineSubsystem)
+	if (!MultiplayerSubsystem)
 	{
-		UE_LOG(LogTemp, Error, TEXT("No online subsystem found"));
+		UE_LOG(LogTemp, Error, TEXT("No multiplayer subsystem found"));
 		return;
 	}
 
-	// Get the Session Interface
-	IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-	if (!SessionInterface.IsValid())
-	{
-		UE_LOG(LogTemp, Error, TEXT("Session interface is invalid"));
-		return;
-	}
-
-	// Get the local player
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogTemp, Error, TEXT("No world context"));
-		return;
-	}
-
-	APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->GetLocalPlayer())
-	{
-		UE_LOG(LogTemp, Error, TEXT("No local player controller"));
-		return;
-	}
-
-	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-
-	// Bind the completion delegate
-	JoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(
-		FOnJoinSessionCompleteDelegate::CreateUObject(this, &US_UI_VM_ServerBrowser::OnJoinSessionComplete)
-	);
-
-	// Attempt to join the session
-	if (!SessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, SessionSearchResult))
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to join session"));
-
-		// Clean up the delegate since we won't get a callback
-		SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
-
-		// Show error modal
-		if (US_UI_Subsystem* UISubsystem = World->GetGameInstance()->GetSubsystem<US_UI_Subsystem>())
-		{
-			F_UIModalPayload Payload;
-			Payload.Message = FText::FromString(TEXT("Failed to join the selected game session."));
-			Payload.ModalType = E_UIModalType::OK;
-			UISubsystem->RequestModal(Payload, FOnModalDismissedSignature());
-		}
-	}
+	UE_LOG(LogTemp, Log, TEXT("Attempting to join session..."));
+	MultiplayerSubsystem->JoinSession(SessionSearchResult);
 }
 
-void US_UI_VM_ServerBrowser::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+void US_UI_VM_ServerBrowser::OnJoinSessionComplete(EMultiplayerSessionResult Result, const FString& ConnectString)
 {
-	// Get the session interface
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-	if (!OnlineSubsystem)
+	if (Result == EMultiplayerSessionResult::Success)
 	{
-		return;
-	}
+		UE_LOG(LogTemp, Log, TEXT("Successfully joined session. Connect string: %s"), *ConnectString);
 
-	IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
-	if (!SessionInterface.IsValid())
-	{
-		return;
-	}
-
-	// Clean up the delegate
-	SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
-
-	// Check if join was successful
-	if (Result == EOnJoinSessionCompleteResult::Success)
-	{
-		UE_LOG(LogTemp, Log, TEXT("Successfully joined session"));
-
-		// Get the connect string
-		FString ConnectString;
-		if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
+		// Travel to the server
+		if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 		{
-			UE_LOG(LogTemp, Log, TEXT("Traveling to server: %s"), *ConnectString);
-
-			// Travel to the server
-			if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
-			{
-				PC->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to get connection string"));
+			PC->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
 		}
 	}
 	else
@@ -344,14 +202,14 @@ void US_UI_VM_ServerBrowser::OnJoinSessionComplete(FName SessionName, EOnJoinSes
 		FString ErrorMessage;
 		switch (Result)
 		{
-		case EOnJoinSessionCompleteResult::SessionIsFull:
+		case EMultiplayerSessionResult::Join_SessionIsFull:
 			ErrorMessage = TEXT("The session is full.");
 			break;
-		case EOnJoinSessionCompleteResult::SessionDoesNotExist:
+		case EMultiplayerSessionResult::Join_SessionDoesNotExist:
 			ErrorMessage = TEXT("The session no longer exists.");
 			break;
-		case EOnJoinSessionCompleteResult::AlreadyInSession:
-			ErrorMessage = TEXT("You are already in a session.");
+		case EMultiplayerSessionResult::Join_CouldNotResolveConnectString:
+			ErrorMessage = TEXT("Could not resolve connection address.");
 			break;
 		default:
 			ErrorMessage = TEXT("Failed to join the session. Please try again.");

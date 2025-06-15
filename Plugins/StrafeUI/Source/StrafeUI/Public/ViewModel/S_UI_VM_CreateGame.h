@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "ViewModel/S_UI_ViewModelBase.h"
-#include "OnlineSessionSettings.h"
-#include "Interfaces/OnlineSessionInterface.h"
+#include "StrafeMultiplayer/Public/MultiplayerSessionTypes.h"
 #include "S_UI_VM_CreateGame.generated.h"
 
 class US_UI_Settings;
+class UStrafeMultiplayerSubsystem;
 struct FStrafeGameModeInfo;
 
 UCLASS(BlueprintType)
@@ -76,31 +76,14 @@ public:
 
 private:
 	/** Callback for when session creation completes */
-	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
-
-	/** Callback for when a previous session is destroyed before creating a new one. */
-	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
-
-	/** Callback for when the session has been started */
-	void OnStartSessionComplete(FName SessionName, bool bWasSuccessful);
-
-	/** Contains the actual logic to create the session settings and trigger the creation. */
-	void CreateNewSession();
-
-	/** Stores the delegate handle for cleanup */
-	FDelegateHandle CreateSessionCompleteDelegateHandle;
-
-	/** Delegate handle for the destroy session callback. */
-	FDelegateHandle DestroySessionCompleteDelegateHandle;
-
-	/** Delegate handle for the start session callback. */
-	FDelegateHandle StartSessionCompleteDelegateHandle;
+	UFUNCTION()
+	void OnCreateSessionComplete(EMultiplayerSessionResult Result);
 
 	UPROPERTY()
 	TWeakObjectPtr<const US_UI_Settings> UISettings;
 
-	/** Cached game mode class for session creation */
-	UClass* CachedGameModeClass = nullptr;
+	UPROPERTY()
+	TObjectPtr<UStrafeMultiplayerSubsystem> MultiplayerSubsystem;
 
 	/** Cached map asset path for session creation */
 	FString CachedMapAssetPath;

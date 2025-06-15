@@ -11,7 +11,9 @@
 
 US_UI_ViewModelBase* US_UI_FindGameWidget::CreateViewModel()
 {
-    return NewObject<US_UI_VM_ServerBrowser>(this);
+    US_UI_VM_ServerBrowser* VM = NewObject<US_UI_VM_ServerBrowser>(this);
+    VM->Initialize();
+    return VM;
 }
 
 void US_UI_FindGameWidget::SetViewModel(US_UI_ViewModelBase* InViewModel)
@@ -45,11 +47,6 @@ void US_UI_FindGameWidget::NativeOnInitialized()
         Chk_SearchLAN->OnCheckStateChanged.AddDynamic(this, &US_UI_FindGameWidget::HandleSearchLANChanged);
     }
 
-    //if (Btn_Refresh && ViewModel.IsValid())
-    //{
-    //    // Pure MVVM approach: Bind button click directly to the ViewModel's function.
-    //    Btn_Refresh->OnClicked().AddUObject(ViewModel.Get(), &US_UI_VM_ServerBrowser::RequestServerListRefresh);
-    //}
     if (Btn_Join)
     {
         Btn_Join->OnClicked().AddUObject(this, &US_UI_FindGameWidget::HandleJoinClicked);
