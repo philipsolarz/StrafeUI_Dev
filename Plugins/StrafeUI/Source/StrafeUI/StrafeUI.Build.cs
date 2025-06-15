@@ -36,7 +36,8 @@ public class StrafeUI : ModuleRules
 				"AssetRegistry",
                 "OnlineSubsystem",
                 "OnlineSubsystemUtils",
-				"OnlineSubsystemSteam"
+				"OnlineSubsystemSteam",
+                "StrafeMultiplayer"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

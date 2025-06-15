@@ -41,6 +41,10 @@
 		{
 			"Name": "OnlineSubsystemSteam",
 			"Enabled": true
+		},
+		{
+			"Name": "StrafeMultiplayer",
+			"Enabled": true
 		}
 	]
 }
